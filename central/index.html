@@ -126,6 +126,7 @@ table.t td.r,table.t th.r{text-align:right}
 
 .qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
 .chamado.link{background:#0f3a28;border-color:var(--ok)}
+.chamado.dlv{background:#2b2144;border-color:var(--prep)}
 
 .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
 .kcol h3{margin-top:0;display:flex;justify-content:space-between}
@@ -223,6 +224,8 @@ table.t td.r,table.t th.r{text-align:right}
     <div id="listaProd"></div>
   </section>
 
+  <section id="t-delivery" class="tela hidden"></section>
+
   <section id="t-mais" class="tela hidden">
     <div class="seg sub-seg" id="segMais"><button data-s="clientes" class="on">Clientes</button><button data-s="equipe">Equipe</button><button data-s="config">Configurações</button></div>
     <div id="sub-clientes">
@@ -242,6 +245,7 @@ table.t td.r,table.t th.r{text-align:right}
   <button data-tab="mesas"><span class="i">🪑</span>Mesas<span class="dot hidden" id="dotConta"></span></button>
   <button data-tab="relatorio"><span class="i">📊</span>Relatório</button>
   <button data-tab="cardapio"><span class="i">🍽️</span>Cardápio</button>
+  <button data-tab="delivery"><span class="i">🛵</span>Online<span class="dot hidden" id="dotDlv"></span></button>
   <button data-tab="mais"><span class="i">⚙️</span>Mais</button>
 </nav>
 
@@ -264,7 +268,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.6";
+const VERSAO = "1.7";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -280,7 +284,7 @@ let db;
 try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = initializeFirestore(fbApp, {}); }
 
-const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas" };
+const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas", publico: "bar_publico", delivery: "bar_delivery" };
 const col = n => collection(db, n);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -659,7 +663,7 @@ $("#btnSair").onclick = async () => { if (await confirmar("Sair da conta neste a
 onAuthStateChanged(auth, u => verificar(u));
 
 async function verificar(u) {
-  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null; S.pendAnt = null; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; $("#chamadosBox").innerHTML = "";
+  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null; S.pendAnt = null; S.dlvAnt = null; S.delivery = []; S.produtosOk = S.publicoOk = false; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; $("#chamadosBox").innerHTML = "";
   ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u));
   if (!u) return mostrar("login");
   const email = emailDe(u);
@@ -687,12 +691,18 @@ function iniciar() {
     const peds = s.docs.map(d => ({ id: d.id, ...d.data() }));
     if (S.idsAnt) {
       const novos = peds.filter(p => !S.idsAnt.has(p.id) && p.status === "recebido");
-      if (novos.length) { novos.forEach(p => S.novos.add(p.id)); if (S.som) beep(2, false); toast(`🆕 Novo pedido — ${[...new Set(novos.map(p => "Mesa " + p.mesaNumero))].join(", ")}`); setTimeout(() => { novos.forEach(p => S.novos.delete(p.id)); }, 5000); }
+      if (novos.length) { novos.forEach(p => S.novos.add(p.id)); if (S.som) beep(2, false); toast(`🆕 Novo pedido — ${[...new Set(novos.map(p => p.rotulo || "Mesa " + p.mesaNumero))].join(", ")}`); setTimeout(() => { novos.forEach(p => S.novos.delete(p.id)); }, 5000); }
     }
     S.idsAnt = new Set(peds.map(p => p.id));
     S.pedidos = peds; S.pedidosOk = true; render();
   }, erroSnap));
-  S.unsub.push(onSnapshot(col(C.produtos), s => { S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome)); if (S.tela === "cardapio") renderCardapio(); }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.produtos), s => { S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome)); S.produtosOk = true; render(); }, erroSnap));
+  S.unsub.push(onSnapshot(doc(db, C.publico, "cardapio"), d => { S.publico = d.exists() ? d.data() : {}; S.publicoOk = true; render(); }, e => console.warn("publico", e)));
+  S.unsub.push(onSnapshot(query(col(C.delivery), where("ativo", "==", true)), s => {
+    const l = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (tsDate(a.criadoEm) || new Date()) - (tsDate(b.criadoEm) || new Date()));
+    if (S.dlvAnt) { const novos = l.filter(x => x.status === "aguardando" && !S.dlvAnt.has(x.id)); if (novos.length) { if (S.som) beep(4, false); toast("🛵 Novo pedido online: " + novos.map(x => x.nome).join(", ")); } }
+    S.dlvAnt = new Set(l.map(x => x.id)); S.delivery = l; render();
+  }, erroSnap));
   S.unsub.push(onSnapshot(col(C.clientes), s => { S.clientes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.nome.localeCompare(b.nome)); if (S.tela === "mais") renderMais(); }, erroSnap));
   S.unsub.push(onSnapshot(col(C.garcons), s => { S.garcons = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || "")); if (S.tela === "mais") renderMais(); }, erroSnap));
   S.comandas = {}; S.unsub.push(ouvirComandas(S, () => render()));
@@ -702,6 +712,7 @@ function iniciar() {
 
 /* ---------- Navegação / topo ---------- */
 function mostrar(t) {
+  S.cfgRedesenhar = true;
   S.tela = t;
   $$(".tela").forEach(e => e.classList.add("hidden")); $("#t-" + t).classList.remove("hidden");
   $("#tabs").classList.toggle("hidden", ["login", "semacesso"].includes(t));
@@ -711,7 +722,7 @@ function mostrar(t) {
 }
 $$("#tabs button").forEach(b => b.onclick = () => mostrar(b.dataset.tab));
 $$("#segCols button").forEach(b => b.onclick = () => { S.col = b.dataset.c; $$("#segCols button").forEach(x => x.classList.toggle("on", x === b)); $$(".kcol").forEach(k => k.classList.toggle("on", k.dataset.col === S.col)); });
-$$("#segMais button").forEach(b => b.onclick = () => { S.sub = b.dataset.s; $$("#segMais button").forEach(x => x.classList.toggle("on", x === b)); renderMais(); });
+$$("#segMais button").forEach(b => b.onclick = () => { S.sub = b.dataset.s; S.cfgRedesenhar = true; $$("#segMais button").forEach(x => x.classList.toggle("on", x === b)); renderMais(); });
 const somIcone = () => { $("#btnSom").textContent = S.som ? "🔔" : "🔕"; };
 $("#btnSom").onclick = () => { S.som = !S.som; try { localStorage.setItem("bar_som", S.som ? "1" : "0"); } catch (e) { } somIcone(); unlockAudio(); if (S.som) beep(1, false); toast(S.som ? "Som ligado" : "Som desligado"); };
 somIcone();
@@ -726,7 +737,9 @@ setInterval(() => { if (["pedidos", "mesas"].includes(S.tela)) render(); }, 3000
 function render() {
   if (!S.perfil) return;
   sincronizarComandas(S);
-  const box = $("#chamadosBox"); box.innerHTML = pendentesHtml(S.mesas) + chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
+  const aguard = (S.delivery || []).filter(x => x.status === "aguardando");
+  const box = $("#chamadosBox"); box.innerHTML = (aguard.length && S.tela !== "delivery" ? `<div class="chamados"><div class="chamado dlv"><div class="grow"><b>🛵 ${aguard.length} pedido(s) online aguardando</b><div class="small">${aguard.map(x => esc(x.nome)).join(", ")}</div></div><button class="btn sm" data-verdlv>Ver</button></div></div>` : "") + pendentesHtml(S.mesas) + chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
+  $("[data-verdlv]", box)?.addEventListener("click", () => mostrar("delivery"));
   $$("[data-enviarlink]", box).forEach(b => b.onclick = () => { const m = S.mesas.find(x => x.id === b.dataset.enviarlink); if (m) enviarLinkWhats(m, S.cfg.nomeBar); });
   $$("[data-dispensar]", box).forEach(b => b.onclick = () => salvar(updateDoc(doc(db, C.mesas, b.dataset.dispensar), { linkPendente: false })));
   if (S.tela === "pedidos") renderPedidos();
@@ -736,6 +749,10 @@ function render() {
   if (S.modalMesa?.md.aberto) renderFechamento();
   const nRec = S.pedidos.filter(p => p.status === "recebido").length;
   $("#dotPed").textContent = nRec; $("#dotPed").classList.toggle("hidden", !nRec);
+  if (S.tela === "delivery") renderDelivery();
+  sincronizarPublico(); sincronizarDelivery();
+  const nDlv = (S.delivery || []).filter(x => x.status === "aguardando").length;
+  $("#dotDlv").textContent = nDlv; $("#dotDlv").classList.toggle("hidden", !nDlv);
   const nConta = S.mesas.filter(m => m.status === "fechamento").length;
   $("#dotConta").textContent = nConta; $("#dotConta").classList.toggle("hidden", !nConta);
 }
@@ -752,7 +769,7 @@ function renderPedidos() {
   const card = p => {
     const m = mesaDe(p), min = minutosDesde(p.criadoEm), px = PROX[p.status];
     return `<div class="card pedido ${S.novos.has(p.id) ? "novo" : ""}">
-      <div class="row between"><span class="mesa-n">Mesa ${esc(p.mesaNumero)}</span>
+      <div class="row between"><span class="mesa-n">${esc(p.rotulo || "Mesa " + p.mesaNumero)}</span>
         <span class="small ${min >= 15 && p.status !== "pronto" ? "atraso" : "muted"}">${hora(p.criadoEm)} · ${min} min</span></div>
       <div class="small muted" style="margin-bottom:4px">${esc(p.garcomNome || "")}${p.mesaNome ? " · " + esc(p.mesaNome) : ""}</div>
       ${itensHtml(p.itens, m?.ocupantes)}
@@ -956,7 +973,7 @@ function renderMais() {
         <div class="small muted">${esc(g.id)}</div></button>`).join("");
     $$("[data-gar]").forEach(x => x.onclick = () => editarGarcom(S.garcons.find(g => g.id === x.dataset.gar)));
   }
-  if (S.sub === "config") renderConfig();
+  if (S.sub === "config" && (S.cfgRedesenhar || !$("#cfNome"))) { S.cfgRedesenhar = false; renderConfig(); }   // não apaga o que está sendo digitado
 }
 function editarCliente(c) {
   const md = abrirModal(`<div class="mh"><h2>${c ? "Editar cliente" : "Novo cliente"}</h2><button class="icon-btn" data-fechar>✕</button></div>
@@ -1017,6 +1034,15 @@ function renderConfig() {
       <button class="btn ghost sm" id="cpG">Copiar link do garçom</button>
       <div class="small muted" style="margin-top:12px">Central</div><div style="word-break:break-all;margin:4px 0 8px">${esc(urlC)}</div>
       <button class="btn ghost sm" id="cpC">Copiar link da central</button></div>
+    <h3>Cardápio online (retirada e entrega)</h3>
+    <div class="card">
+      <label class="switch"><span><b>Receber pedidos online</b><br><span class="small muted">Desligado, o cliente vê o cardápio mas não consegue pedir</span></span><input type="checkbox" id="cfDlvOn" ${S.cfg.deliveryAberto ? "checked" : ""}></label>
+      <label class="switch"><span>Fazer entregas <span class="small muted">(desligado = só retirada)</span></span><input type="checkbox" id="cfDlvEnt" ${S.cfg.fazEntrega !== false ? "checked" : ""}></label>
+      <label>Taxa de entrega (R$)</label><input id="cfTxEnt" inputmode="decimal" placeholder="0,00" value="${S.cfg.taxaEntrega ? String(S.cfg.taxaEntrega).replace(".", ",") : ""}">
+      <button class="btn block" id="cfDlvSalvar" style="margin-top:12px">Salvar</button>
+      <div class="small muted" style="margin-top:14px">Link do cardápio (envie aos clientes)</div><div style="word-break:break-all;margin:4px 0 8px">${esc(linkCardapio())}</div>
+      <div class="row"><button class="btn ghost sm grow" id="cpCard">Copiar link</button><button class="btn ok sm grow" id="zapCard">Enviar pelo WhatsApp</button></div>
+    </div>
     ${S.perfil.dono ? `<h3>Limpar relatório</h3>
     <div class="card">
       <p class="small muted">Apaga as vendas (mesas fechadas e pedidos) do período escolhido. O cadastro — mesas, cardápio, equipe e clientes — e as mesas abertas <b>não</b> são afetados. <b>Não dá para desfazer.</b></p>
@@ -1026,6 +1052,13 @@ function renderConfig() {
     </div>` : ""}
     <p class="muted small" style="margin-top:14px">Versão ${VERSAO} · projeto atendimento-bar · dia de operação vira às 6h.</p>`;
   if (S.perfil.dono) ligarLimpeza();
+  $("#cfDlvSalvar").onclick = () => {
+    const tx = parseNum($("#cfTxEnt").value);
+    if (tx < 0 || tx > 200) return toast("Taxa de entrega inválida", "erro");
+    salvar(setDoc(doc(db, C.config, "geral"), { deliveryAberto: $("#cfDlvOn").checked, fazEntrega: $("#cfDlvEnt").checked, taxaEntrega: Math.round(tx * 100) / 100 }, { merge: true }), "Cardápio online atualizado");
+  };
+  $("#cpCard").onclick = () => copiar(linkCardapio());
+  $("#zapCard").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(`🍺 Cardápio do ${S.cfg.nomeBar}\nFaça seu pedido para retirada${S.cfg.fazEntrega !== false ? " ou entrega" : ""} por aqui:\n${linkCardapio()}`), "_blank");
   $("#cfSalvar").onclick = () => {
     const wz = $("#cfWhats").value.trim(), whatsBar = wz ? foneWhats(wz) : "";
     if (wz && !whatsBar) return toast("WhatsApp do bar inválido — use DDD + número", "erro");
@@ -1034,6 +1067,130 @@ function renderConfig() {
     salvar(setDoc(doc(db, C.config, "geral"), d, { merge: true }), "Configurações salvas");
   };
   $("#cpG").onclick = () => copiar(urlG); $("#cpC").onclick = () => copiar(urlC);
+}
+
+/* ---------- Cardápio online: dados públicos + pedidos de retirada/entrega ---------- */
+function linkCardapio() { return new URL("../cliente/", location.href.split("#")[0].split("?")[0]).href; }
+let _pubPend = null;
+function sincronizarPublico() {
+  if (!S.produtosOk || !S.publicoOk || !S.cfgOk) return;
+  const dado = {
+    nomeBar: S.cfg.nomeBar || "Bar", whatsBar: S.cfg.whatsBar || "", aberto: !!S.cfg.deliveryAberto, entrega: S.cfg.fazEntrega !== false,
+    taxaEntrega: Math.round((S.cfg.taxaEntrega || 0) * 100),
+    produtos: S.produtos.filter(p => p.ativo !== false).map(p => ({ id: p.id, nome: p.nome, categoria: p.categoria || "Outros", preco: p.preco }))
+  };
+  const hash = JSON.stringify(dado);
+  if (S.publico?.hash === hash || _pubPend === hash) return;
+  _pubPend = hash;
+  setTimeout(() => {
+    if (S.publico?.hash === hash) { _pubPend = null; return; }
+    setDoc(doc(db, C.publico, "cardapio"), { ...dado, hash, atualizadoEm: serverTimestamp() }).catch(e => console.warn("publico", e)).finally(() => { if (_pubPend === hash) _pubPend = null; });
+  }, 300 + Math.random() * 1200);
+}
+const rotuloDlv = d => (d.tipo === "entrega" ? "🛵 Entrega · " : "🥡 Retirada · ") + d.nome;
+/* Quando a cozinha marca o pedido online como pronto, o cliente vê "pronto/saiu para entrega" */
+function sincronizarDelivery() {
+  for (const d of S.delivery || []) {
+    if (d.status !== "preparando" || !d.pedidoId) continue;
+    const p = S.pedidos.find(x => x.id === d.pedidoId);
+    if (p && ["pronto", "entregue"].includes(p.status) && !d._sync) { d._sync = true; salvar(updateDoc(doc(db, C.delivery, d.id), { status: "pronto", prontoEm: serverTimestamp() })); }
+  }
+}
+const ST_DLV = { aguardando: ["Aguardando confirmação", "st-rec"], preparando: ["Em preparo", "st-prep"], pronto: ["Pronto", "st-pronto"] };
+function renderDelivery() {
+  const l = S.delivery || [], cfg = S.cfg;
+  const card = d => {
+    const st = ST_DLV[d.status] || ["", ""], p = d.pedidoId ? S.pedidos.find(x => x.id === d.pedidoId) : null, ent = d.tipo === "entrega";
+    const coz = p ? ({ recebido: "na fila da cozinha", preparando: "cozinha preparando", pronto: "pronto na cozinha", entregue: "saiu da cozinha" }[p.status] || "") : "";
+    let acoes = "";
+    if (d.status === "aguardando") acoes = `<button class="btn danger sm" data-recusar="${d.id}">Recusar</button><button class="btn ok sm" data-aceitar="${d.id}">Aceitar</button>`;
+    else if (d.status === "preparando") acoes = `<button class="btn danger sm" data-cancdlv="${d.id}">Cancelar</button><button class="btn prep sm" data-prontodlv="${d.id}">${ent ? "Saiu p/ entrega" : "Pronto p/ retirada"}</button>`;
+    else if (d.status === "pronto") acoes = `<button class="btn danger sm" data-cancdlv="${d.id}">Cancelar</button><button class="btn ok sm" data-concluir="${d.id}">${ent ? "Entregue" : "Retirado"} · receber</button>`;
+    return `<div class="card pedido">
+      <div class="row between"><span class="mesa-n">${ent ? "🛵" : "🥡"} ${esc(d.nome)}</span><span class="badge ${st[1]}">${st[0]}</span></div>
+      <div class="small muted" style="margin:2px 0 6px">${hora(d.criadoEm)} · ${minutosDesde(d.criadoEm)} min · ${ent ? "Entrega" : "Retirada"} · ${esc(fmtFone(d.telefone))}${coz ? " · " + coz : ""}</div>
+      ${ent ? `<div class="small" style="margin-bottom:6px">📍 ${esc(d.endereco)}</div>` : ""}
+      ${(d.itens || []).map(i => `<div class="it"><b>${i.qtd}x</b> ${esc(i.nome)} <span class="muted small">${brl(cents(i.preco) * i.qtd)}</span></div>`).join("")}
+      ${d.obs ? `<div class="obs">↳ ${esc(d.obs)}</div>` : ""}
+      <div class="row between" style="margin-top:6px"><span class="small muted">${esc(d.pagamento)}${d.troco ? " · troco p/ " + brl(d.troco) : ""}${d.taxaEntrega ? " · entrega " + brl(d.taxaEntrega) : ""}</span><b>${brl(d.total)}</b></div>
+      <div class="row between" style="margin-top:10px"><button class="btn ghost sm" data-zapdlv="${d.id}" title="Mensagem para o cliente">💬</button><div class="row">${acoes}</div></div></div>`;
+  };
+  const g = k => l.filter(d => d.status === k);
+  $("#t-delivery").innerHTML = `
+    ${cfg.deliveryAberto ? `<div class="alerta" style="background:#0f3a28;border-color:var(--ok)">🟢 Recebendo pedidos online${cfg.fazEntrega !== false ? " · retirada e entrega" : " · só retirada"}</div>`
+      : `<div class="alerta" style="background:#3a2f12;border-color:#6b5316">⏸️ Pedidos online desligados — ligue em Mais → Configurações → Cardápio online.</div>`}
+    <div class="row" style="margin-bottom:6px"><button class="btn ghost sm grow" id="dlvCp">Copiar link do cardápio</button><button class="btn ok sm grow" id="dlvZap">Enviar pelo WhatsApp</button></div>
+    <h3>Aguardando confirmação (${g("aguardando").length})</h3><div class="list">${g("aguardando").map(card).join("") || `<div class="empty">Nenhum pedido novo.</div>`}</div>
+    <h3>Em preparo (${g("preparando").length})</h3><div class="list">${g("preparando").map(card).join("") || `<div class="empty">Nada em preparo.</div>`}</div>
+    <h3>Prontos / saiu para entrega (${g("pronto").length})</h3><div class="list">${g("pronto").map(card).join("") || `<div class="empty">Nada aguardando retirada ou entrega.</div>`}</div>
+    <p class="small muted" style="margin-top:14px">Ao aceitar, o pedido entra na fila da cozinha (aba Pedidos). Ao concluir, a venda entra no relatório.</p>`;
+  const D = id => l.find(x => x.id === id);
+  $("#dlvCp").onclick = () => copiar(linkCardapio());
+  $("#dlvZap").onclick = () => $("#zapCard") ? $("#zapCard").click() : window.open("https://wa.me/?text=" + encodeURIComponent(`🍺 Cardápio do ${cfg.nomeBar}\n${linkCardapio()}`), "_blank");
+  $$("[data-aceitar]").forEach(b => b.onclick = () => aceitarDlv(D(b.dataset.aceitar)));
+  $$("[data-recusar]").forEach(b => b.onclick = () => recusarDlv(D(b.dataset.recusar), "recusado"));
+  $$("[data-cancdlv]").forEach(b => b.onclick = () => recusarDlv(D(b.dataset.cancdlv), "cancelado"));
+  $$("[data-prontodlv]").forEach(b => b.onclick = () => {
+    const d = D(b.dataset.prontodlv), bt = writeBatch(db);
+    bt.update(doc(db, C.delivery, d.id), { status: "pronto", prontoEm: serverTimestamp() });
+    if (d.pedidoId) bt.update(doc(db, C.pedidos, d.pedidoId), { status: "entregue", entregueEm: serverTimestamp() });
+    salvar(bt.commit());
+  });
+  $$("[data-concluir]").forEach(b => b.onclick = () => concluirDlv(D(b.dataset.concluir)));
+  $$("[data-zapdlv]").forEach(b => b.onclick = () => zapCliente(D(b.dataset.zapdlv)));
+}
+function aceitarDlv(d) {
+  const bt = writeBatch(db), pref = doc(col(C.pedidos));
+  bt.set(pref, {
+    mesaId: "dlv_" + d.id, mesaNumero: 0, mesaNome: "", rotulo: rotuloDlv(d), sessao: d.id,
+    itens: (d.itens || []).map((i, k) => ({ pid: i.pid || "", nome: i.nome, preco: i.preco, qtd: i.qtd, obs: k === 0 && d.obs ? "Obs. do cliente: " + d.obs : "", para: [] })),
+    status: "recebido", aberto: true, garcomEmail: "delivery", garcomNome: "Online", criadoEm: serverTimestamp(), dia: diaOperacao()
+  });
+  bt.update(doc(db, C.delivery, d.id), { status: "preparando", pedidoId: pref.id, aceitoEm: serverTimestamp(), aceitoPor: S.perfil.nome });
+  salvar(bt.commit(), "Pedido aceito — foi para a cozinha");
+}
+function recusarDlv(d, tipo) {
+  const md = abrirModal(`<div class="mh"><h2>${tipo === "recusado" ? "Recusar" : "Cancelar"} pedido de ${esc(d.nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Motivo (o cliente vê esta mensagem)</label>
+    <input id="mot" value="${tipo === "recusado" ? "Não conseguimos atender este pedido agora." : "Pedido cancelado pelo bar."}">
+    <div class="chips" style="margin-top:8px">${["Item em falta", "Fora da área de entrega", "Cozinha fechada", "Muito movimento agora"].map(t => `<button class="chip" data-m="${t}">${t}</button>`).join("")}</div>
+    <button class="btn danger block" id="ok" style="margin-top:14px">${tipo === "recusado" ? "Recusar" : "Cancelar"} pedido</button>`);
+  $$("[data-m]", md.el).forEach(b => b.onclick = () => $("#mot", md.el).value = b.dataset.m);
+  $("#ok", md.el).onclick = () => {
+    const bt = writeBatch(db);
+    bt.update(doc(db, C.delivery, d.id), { status: tipo, ativo: false, motivo: $("#mot", md.el).value.trim().slice(0, 200), encerradoEm: serverTimestamp() });
+    if (d.pedidoId) bt.update(doc(db, C.pedidos, d.pedidoId), { status: "cancelado", aberto: false, canceladoPor: S.perfil.nome });
+    salvar(bt.commit(), tipo === "recusado" ? "Pedido recusado" : "Pedido cancelado"); md.fechar();
+  };
+}
+function concluirDlv(d) {
+  const md = abrirModal(`<div class="mh"><h2>${d.tipo === "entrega" ? "Entregue" : "Retirado"} · ${esc(d.nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <div class="kv tot"><span>Total</span><span>${brl(d.total)}</span></div>
+    <label>Forma de pagamento recebida</label>
+    <select id="fp">${FORMAS.map(f => `<option ${f === d.pagamento || (d.pagamento === "Cartão" && f === "Crédito") ? "selected" : ""}>${f}</option>`).join("")}</select>
+    <button class="btn ok block" id="ok" style="margin-top:14px">Concluir e lançar no relatório</button>`);
+  $("#ok", md.el).onclick = () => {
+    const forma = $("#fp", md.el).value, bt = writeBatch(db);
+    bt.set(doc(col(C.contas)), {
+      mesaId: "dlv_" + d.id, mesaNumero: 0, mesaNome: "", rotulo: rotuloDlv(d), sessao: d.id,
+      abertaEm: d.criadoEm || null, fechadaEm: serverTimestamp(), dia: diaOperacao(tsDate(d.criadoEm) || new Date()),
+      garcomEmail: "delivery", garcomNome: "Online", fechadoPor: S.perfil.nome,
+      divisao: "unica", pct: 0, subtotal: d.subtotal / 100, taxa: 0, taxaEntrega: (d.taxaEntrega || 0) / 100, total: d.total / 100, qtdPessoas: 1,
+      pessoas: [{ nome: d.nome, clienteId: null, subtotal: d.total / 100, taxa: 0, total: d.total / 100, forma }],
+      itens: (d.itens || []).map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100 }))
+    });
+    bt.update(doc(db, C.delivery, d.id), { status: "concluido", ativo: false, forma, encerradoEm: serverTimestamp() });
+    if (d.pedidoId) bt.update(doc(db, C.pedidos, d.pedidoId), { status: "entregue", aberto: false });
+    salvar(bt.commit(), "Pedido concluído"); md.fechar();
+  };
+}
+function zapCliente(d) {
+  const f = foneWhats(d.telefone); if (!f) return toast("Telefone do cliente inválido", "erro");
+  const ent = d.tipo === "entrega";
+  const txt = { aguardando: `Olá, ${d.nome}! Recebemos seu pedido no ${S.cfg.nomeBar} e já vamos confirmar.`,
+    preparando: `Olá, ${d.nome}! Seu pedido no ${S.cfg.nomeBar} foi confirmado e está em preparo. 👨‍🍳`,
+    pronto: ent ? `Olá, ${d.nome}! Seu pedido do ${S.cfg.nomeBar} saiu para entrega. 🛵` : `Olá, ${d.nome}! Seu pedido está pronto para retirada no ${S.cfg.nomeBar}. ✅` }[d.status] || `Olá, ${d.nome}!`;
+  window.open(`https://wa.me/${f}?text=${encodeURIComponent(txt + `\nTotal: ${brl(d.total)}`)}`, "_blank");
 }
 
 /* ---------- Limpar relatório (só o responsável) ---------- */
@@ -1134,7 +1291,7 @@ async function gerarRelatorio() {
     <div class="card"><table class="t"><thead><tr><th>Item</th><th class="r">Qtd</th><th class="r">Total</th></tr></thead><tbody>
       ${topItens.map(i => `<tr><td>${esc(i.nome)}</td><td class="r">${i.qtd}</td><td class="r">${brl(i.total)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Sem vendas</td></tr>`}</tbody></table></div>
     <h3>Contas fechadas</h3>
-    <div class="list">${contasOrd.map(c => `<button class="card" style="width:100%;text-align:left" data-conta="${c.id}"><div class="row between"><b>Mesa ${esc(c.mesaNumero)}</b><b>${brlR(c.total)}</b></div>
+    <div class="list">${contasOrd.map(c => `<button class="card" style="width:100%;text-align:left" data-conta="${c.id}"><div class="row between"><b>${esc(c.rotulo || "Mesa " + c.mesaNumero)}</b><b>${brlR(c.total)}</b></div>
       <div class="small muted">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · ${c.qtdPessoas || 0} pess.</div></button>`).join("") || `<div class="empty">Nenhuma conta fechada no período.</div>`}</div>
     <p class="muted small" style="margin-top:14px">O dia de operação vai das 6h às 6h do dia seguinte. Faturamento considera só mesas já fechadas.</p>`;
   $$("[data-conta]").forEach(b => b.onclick = () => verConta(contas.find(c => c.id === b.dataset.conta)));
@@ -1146,7 +1303,7 @@ async function gerarRelatorio() {
   S.rel = { texto: t };
 }
 function verConta(c) {
-  abrirModal(`<div class="mh"><h2>Mesa ${esc(c.mesaNumero)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+  abrirModal(`<div class="mh"><h2>${esc(c.rotulo || "Mesa " + c.mesaNumero)}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <div class="muted small">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · fechada por ${esc(c.fechadoPor || "")}</div>
     <h3>Consumo</h3><table class="t"><tbody>${(c.itens || []).map(i => `<tr><td>${i.qtd}x ${esc(i.nome)}</td><td class="r">${brlR(i.total)}</td></tr>`).join("")}</tbody></table>
     <h3>Pagamentos · ${DIVISOES[c.divisao] || ""}</h3><table class="t"><tbody>${(c.pessoas || []).map(p => `<tr><td>${esc(p.nome)}</td><td>${esc(p.forma)}</td><td class="r">${brlR(p.total)}</td></tr>`).join("")}</tbody></table>
