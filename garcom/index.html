@@ -126,6 +126,7 @@ table.t td.r,table.t th.r{text-align:right}
 
 .qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
 .chamado.link{background:#0f3a28;border-color:var(--ok)}
+.chamado.dlv{background:#2b2144;border-color:var(--prep)}
 
 </style>
 </head>
@@ -200,7 +201,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.6";
+const VERSAO = "1.7";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -216,7 +217,7 @@ let db;
 try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = initializeFirestore(fbApp, {}); }
 
-const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas" };
+const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas", publico: "bar_publico", delivery: "bar_delivery" };
 const col = n => collection(db, n);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -617,7 +618,7 @@ function iniciar() {
     S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); S.mesasOk = true; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(query(col(C.pedidos), where("aberto", "==", true)), s => {
-    const peds = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    const peds = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !String(p.mesaId).startsWith("dlv_"));   // pedidos online ficam só na central
     if (S.statusAnt) {
       const novos = peds.filter(p => p.status === "pronto" && S.statusAnt[p.id] && S.statusAnt[p.id] !== "pronto" && p.garcomEmail === S.perfil.email);
       if (novos.length) { beep(3); toast("🔔 Pronto: " + [...new Set(novos.map(p => "Mesa " + p.mesaNumero))].join(", "), "ok"); }
