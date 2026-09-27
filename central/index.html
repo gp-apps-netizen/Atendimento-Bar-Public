@@ -2,25 +2,924 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111214">
-<title>Atendimento de Bar</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Bar · Central</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-body{margin:0;min-height:100vh;background:#111214;color:#ececec;font-family:'IBM Plex Sans',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
-.w{max-width:420px;width:100%;text-align:center}
-h1{font-family:'Space Grotesk';font-size:1.6rem;margin:0 0 6px}p{color:#9b9ca3;margin:0 0 24px}
-a{display:flex;align-items:center;gap:14px;text-align:left;text-decoration:none;color:inherit;background:#1a1b1e;border:1px solid #303137;border-radius:14px;padding:16px;margin-bottom:12px}
-a span{width:48px;height:48px;border-radius:12px;background:#f5a524;display:grid;place-items:center;font-size:26px;flex:none}
-a b{font-family:'Space Grotesk';font-size:1.1rem;display:block}a small{color:#9b9ca3}
+:root{
+  --bg:#111214; --s1:#1a1b1e; --s2:#222327; --s3:#2c2d32; --bd:#303137;
+  --tx:#ececec; --mu:#9b9ca3; --ac:#f5a524; --ac2:#ffbf4d; --acx:#1b1300;
+  --ok:#3ecf8e; --er:#ef5350; --info:#4aa3ff; --prep:#b58cff;
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;line-height:1.4}
+body{min-height:100vh;padding-bottom:84px}
+body.noscroll{overflow:hidden}
+h1,h2,h3,.num,.brand b{font-family:'Space Grotesk',system-ui,sans-serif}
+h2{font-size:1.15rem;margin:4px 0 12px}
+h3{font-size:1rem;margin:14px 0 8px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.78rem}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 12px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+label{display:block;font-size:.8rem;color:var(--mu);margin:10px 0 4px}
+.hidden{display:none!important}
+.muted{color:var(--mu)}.small{font-size:.82rem}.right{text-align:right}
+.row{display:flex;gap:8px;align-items:center}.row.end{justify-content:flex-end}.row.wrap{flex-wrap:wrap}.row.between{justify-content:space-between}
+.grow{flex:1}
+.top{position:sticky;top:0;z-index:20;background:rgba(17,18,20,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+.brand{display:flex;gap:10px;align-items:center}.brand .logo{width:36px;height:36px;border-radius:10px;background:var(--ac);display:grid;place-items:center;font-size:20px}
+.brand b{display:block;font-size:1.02rem}.brand small{color:var(--mu);font-size:.75rem}
+.icon-btn{width:38px;height:38px;border-radius:10px;background:var(--s2);display:grid;place-items:center;font-size:1.05rem}
+main{padding:14px;max-width:1200px;margin:0 auto}
+.btn{background:var(--ac);color:var(--acx);font-weight:600;border-radius:10px;padding:11px 16px;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--s2);color:var(--tx)}.btn.ok{background:var(--ok);color:#03150c}.btn.danger{background:transparent;color:var(--er);border:1px solid #5a2a2a}
+.btn.info{background:var(--info);color:#021426}.btn.prep{background:var(--prep);color:#140630}
+.btn.sm{padding:7px 11px;font-size:.85rem;border-radius:8px}.btn.block{width:100%}
+.btn:disabled{opacity:.45}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:12px}
+.list>*+*{margin-top:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--s2);border:1px solid var(--bd);border-radius:999px;padding:6px 12px;font-size:.85rem;white-space:nowrap}
+.chip.on{background:var(--ac);color:var(--acx);border-color:var(--ac);font-weight:600}
+.chip.add{border-style:dashed;color:var(--mu)}
+.scroll-x{overflow-x:auto;scrollbar-width:none}.scroll-x::-webkit-scrollbar{display:none}.scroll-x .chips{flex-wrap:nowrap}
+.seg{display:flex;background:var(--s2);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;padding:8px 6px;border-radius:8px;font-size:.85rem;color:var(--mu)}
+.seg button.on{background:var(--s3);color:var(--tx);font-weight:600}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:600}
+.st-rec{background:#3a2f12;color:var(--ac2)}.st-prep{background:#2b2144;color:var(--prep)}.st-pronto{background:#0f3a28;color:var(--ok)}
+.st-ent{background:var(--s3);color:var(--mu)}.st-canc{background:#3a1616;color:var(--er)}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(26,27,30,.97);border-top:1px solid var(--bd);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:10px;font-size:.7rem;color:var(--mu);position:relative}
+.tabs button span.i{font-size:1.25rem;line-height:1}
+.tabs button.on{color:var(--ac);background:var(--s2)}
+.tabs .dot{position:absolute;top:2px;right:calc(50% - 22px);background:var(--er);color:#fff;border-radius:999px;font-size:.66rem;min-width:18px;height:18px;display:grid;place-items:center;padding:0 5px;font-weight:700}
+.center{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.hero-ico{font-size:56px}
+.mesas{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.mesa{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:10px;text-align:left;min-height:104px;display:flex;flex-direction:column;gap:3px;position:relative}
+.mesa .n{font-family:'Space Grotesk';font-size:1.6rem;font-weight:700;line-height:1}
+.mesa .nm{font-size:.72rem;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mesa .inf{font-size:.75rem;color:var(--mu);margin-top:auto}
+.mesa .tot{font-family:'Space Grotesk';font-weight:600;font-size:.95rem}
+.mesa.livre{opacity:.72}.mesa.livre .n{color:var(--mu)}
+.mesa.aberta{border-color:#5a4a1e;background:linear-gradient(160deg,#241d0c,var(--s1) 60%)}
+.mesa.aberta .n{color:var(--ac)}
+.mesa.fechamento{border-color:var(--info);background:linear-gradient(160deg,#0c1f33,var(--s1) 60%)}
+.mesa.fechamento .n{color:var(--info)}
+.mesa .flag{position:absolute;top:8px;right:8px;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 7px}
+.flag.pronto{background:var(--ok);color:#03150c}.flag.conta{background:var(--info);color:#021426}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--s1);border:1px solid var(--bd);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));animation:up .18s ease-out}
+.modal.full{height:92vh;display:flex;flex-direction:column;padding:0}
+@media(min-width:700px){.modal-bg{align-items:center}.modal{border-radius:18px}}
+@keyframes up{from{transform:translateY(30px);opacity:.4}}
+.modal .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.modal .mh h2{margin:0}
+.conf-msg{margin:6px 0 16px;font-size:1rem}
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--s3);color:var(--tx);padding:10px 16px;border-radius:10px;opacity:0;transition:.2s;z-index:99;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%)}#toast.erro{background:#5a1f1f}#toast.ok{background:#0f3a28}
+.kv{display:flex;justify-content:space-between;padding:4px 0}.kv.tot{font-family:'Space Grotesk';font-size:1.2rem;font-weight:700;border-top:1px solid var(--bd);margin-top:6px;padding-top:8px}
+.pessoa{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd);gap:8px}
+.pessoa:last-child{border-bottom:0}
+.pessoa .v{font-family:'Space Grotesk';font-weight:700;font-size:1.05rem}
+.linhas{font-size:.78rem;color:var(--mu);margin-top:2px}
+.pedido .it{padding:3px 0}.pedido .it b{font-family:'Space Grotesk'}
+.pedido .obs{font-size:.8rem;color:var(--ac2)}.pedido .para{font-size:.76rem;color:var(--mu)}
+.empty{color:var(--mu);text-align:center;padding:28px 10px;font-size:.9rem}
+.prod{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--bd);border-radius:12px}
+.prod .pn{flex:1;min-width:0}.prod .pn b{display:block;font-weight:500}.prod .pn small{color:var(--mu)}
+.qty{display:flex;align-items:center;gap:4px}
+.qty button{width:34px;height:34px;border-radius:9px;background:var(--s3);font-size:1.15rem;font-weight:700}
+.qty button.plus{background:var(--ac);color:var(--acx)}
+.qty span{min-width:22px;text-align:center;font-family:'Space Grotesk';font-weight:700}
+.sheet-h{padding:14px 16px 8px;border-bottom:1px solid var(--bd)}
+.sheet-b{flex:1;overflow:auto;padding:12px 16px}
+.sheet-f{padding:12px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--bd);background:var(--s1)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
+.switch input{width:auto;accent-color:var(--ac);transform:scale(1.3)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.kpi small{color:var(--mu);font-size:.75rem;display:block}.kpi b{font-family:'Space Grotesk';font-size:1.35rem}
+table.t{width:100%;border-collapse:collapse;font-size:.88rem}
+table.t td,table.t th{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:left}
+table.t th{color:var(--mu);font-weight:500;font-size:.78rem}
+table.t td.r,table.t th.r{text-align:right}
+.alerta{background:#0c1f33;border:1px solid var(--info);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.pago{color:var(--ok);font-weight:600;font-size:.78rem}
+
+.kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
+.kcol h3{margin-top:0;display:flex;justify-content:space-between}
+.pedido.novo{animation:pisca 1s ease-in-out 4}
+@keyframes pisca{50%{border-color:var(--ac);box-shadow:0 0 0 3px rgba(245,165,36,.35)}}
+.atraso{color:var(--er);font-weight:600}
+.mesa-n{font-family:'Space Grotesk';font-size:1.25rem;font-weight:700}
+#segCols{display:none;margin-bottom:12px}
+@media(max-width:899px){
+  #segCols{display:flex}
+  .kanban{grid-template-columns:1fr}
+  .kanban .kcol{display:none}.kanban .kcol.on{display:block}
+  .kcol h3{display:none}
+}
+.sub-seg{margin-bottom:14px}
+.prodrow{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--bd);border-radius:12px}
+.prodrow .pn{flex:1;min-width:0;text-align:left}.prodrow.off .pn{opacity:.45}
+.pag{display:flex;gap:6px;align-items:center;margin-top:6px}
+.pag select{padding:7px 8px;width:auto;font-size:.85rem}
+@media print{
+  body{background:#fff;color:#000;padding:0}
+  .top,.tabs,.no-print,#toast{display:none!important}
+  .card,.kpi{border:1px solid #bbb;background:#fff;color:#000}
+  .muted,.kpi small,table.t th{color:#444}
+  table.t td,table.t th{border-color:#ccc}
+}
 </style>
 </head>
 <body>
-<div class="w">
-  <h1>Atendimento de Bar</h1>
-  <p>Escolha o app. Abra o link e use “Adicionar à tela inicial”.</p>
-  <a href="garcom/"><span>🍺</span><div><b>App do Garçom</b><small>Mesas, pedidos e divisão da conta</small></div></a>
-  <a href="central/"><span>🧾</span><div><b>Central de Pedidos</b><small>Fila de pedidos, caixa, cardápio e relatórios</small></div></a>
-</div>
+<header class="top">
+  <div class="brand"><span class="logo">🧾</span><div><b id="nomeBar">Central</b><small id="quem">Central de pedidos</small></div></div>
+  <div class="row">
+    <button class="icon-btn hidden" id="btnSom" title="Som dos novos pedidos">🔔</button>
+    <button class="icon-btn hidden" id="btnTela" title="Manter tela ligada">🔅</button>
+    <button class="icon-btn hidden" id="btnSair" title="Sair">⎋</button>
+  </div>
+</header>
+
+<main>
+  <section id="t-login" class="tela center">
+    <div class="hero-ico">🧾</div>
+    <h2>Central de Pedidos</h2>
+    <p class="muted">Entre com o e-mail e a senha do responsável ou de alguém com acesso à central.</p>
+    <div style="width:100%;max-width:340px;text-align:left">
+      <label>E-mail</label><input id="lgEmail" type="email" inputmode="email" autocomplete="username" placeholder="seu@email.com">
+      <label>Senha</label><input id="lgSenha" type="password" autocomplete="current-password" placeholder="••••••">
+      <button class="btn block" id="lgEntrar" style="margin-top:14px">Entrar</button>
+      <div class="row between" style="margin-top:10px"><button class="small muted" id="lgEsqueci">Esqueci a senha</button><button class="small muted" id="lgPrimeiro">Primeiro acesso do responsável</button></div>
+    </div>
+  </section>
+
+  <section id="t-semacesso" class="tela center hidden">
+    <div class="hero-ico">🔒</div>
+    <h2>Sem acesso à central</h2>
+    <p class="muted">Este e-mail não tem permissão de central:</p>
+    <p><b id="semEmail"></b></p>
+    <p class="muted small">O responsável libera em Equipe → marcar “Acesso à central”.</p>
+    <div class="row"><button class="btn ghost" id="btnTentar">Tentar de novo</button><button class="btn ghost" id="btnTrocar">Trocar conta</button></div>
+  </section>
+
+  <section id="t-pedidos" class="tela hidden">
+    <div class="seg" id="segCols">
+      <button data-c="recebido" class="on">Recebidos <b id="nRec"></b></button>
+      <button data-c="preparando">Preparando <b id="nPrep"></b></button>
+      <button data-c="pronto">Prontos <b id="nPro"></b></button>
+    </div>
+    <div class="kanban">
+      <div class="kcol on" data-col="recebido"><h3>Recebidos <span id="nRec2"></span></h3><div class="list" id="colRec"></div></div>
+      <div class="kcol" data-col="preparando"><h3>Preparando <span id="nPrep2"></span></h3><div class="list" id="colPrep"></div></div>
+      <div class="kcol" data-col="pronto"><h3>Prontos p/ entregar <span id="nPro2"></span></h3><div class="list" id="colPro"></div></div>
+    </div>
+  </section>
+
+  <section id="t-mesas" class="tela hidden">
+    <div id="alertasConta"></div>
+    <div class="row between" style="margin-bottom:12px"><span id="mesasResumo" class="muted small"></span><button class="btn ghost sm" id="gerMesas">Gerenciar mesas</button></div>
+    <div id="mesasGrid" class="mesas"></div>
+  </section>
+
+  <section id="t-relatorio" class="tela hidden">
+    <div class="card no-print" style="margin-bottom:12px">
+      <div class="scroll-x"><div class="chips" id="atalhos">
+        <button class="chip on" data-r="hoje">Hoje</button><button class="chip" data-r="ontem">Ontem</button>
+        <button class="chip" data-r="7">7 dias</button><button class="chip" data-r="mes">Este mês</button><button class="chip" data-r="mesant">Mês passado</button></div></div>
+      <div class="row" style="margin-top:8px"><div class="grow"><label>De</label><input type="date" id="rDe"></div><div class="grow"><label>Até</label><input type="date" id="rAte"></div></div>
+      <div class="row" style="margin-top:10px"><button class="btn grow" id="rGerar">Gerar relatório</button><button class="btn ghost" id="rCopiar">Copiar</button><button class="btn ghost" id="rImprimir">Imprimir</button></div>
+    </div>
+    <div id="relConteudo"></div>
+  </section>
+
+  <section id="t-cardapio" class="tela hidden">
+    <div class="row" style="margin-bottom:12px"><input id="buscaProd" placeholder="Buscar produto…" class="grow"><button class="btn" id="novoProd">＋ Produto</button></div>
+    <div id="listaProd"></div>
+  </section>
+
+  <section id="t-mais" class="tela hidden">
+    <div class="seg sub-seg" id="segMais"><button data-s="clientes" class="on">Clientes</button><button data-s="equipe">Equipe</button><button data-s="config">Configurações</button></div>
+    <div id="sub-clientes">
+      <div class="row" style="margin-bottom:12px"><input id="buscaCli" placeholder="Buscar cliente…" class="grow"><button class="btn" id="novoCli">＋ Novo</button></div>
+      <div id="listaCli" class="list"></div>
+    </div>
+    <div id="sub-equipe" class="hidden">
+      <div class="row between" style="margin-bottom:12px"><span class="muted small">Cada pessoa entra com o e-mail e a senha cadastrados aqui.</span><button class="btn" id="novoGar">＋ Garçom</button></div>
+      <div id="listaGar" class="list"></div>
+    </div>
+    <div id="sub-config" class="hidden"></div>
+  </section>
+</main>
+
+<nav class="tabs hidden" id="tabs">
+  <button data-tab="pedidos" class="on"><span class="i">📋</span>Pedidos<span class="dot hidden" id="dotPed"></span></button>
+  <button data-tab="mesas"><span class="i">🪑</span>Mesas<span class="dot hidden" id="dotConta"></span></button>
+  <button data-tab="relatorio"><span class="i">📊</span>Relatório</button>
+  <button data-tab="cardapio"><span class="i">🍽️</span>Cardápio</button>
+  <button data-tab="mais"><span class="i">⚙️</span>Mais</button>
+</nav>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, inMemoryPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ================= CONFIGURAÇÃO =================
+   Cole aqui o firebaseConfig do projeto "atendimento-bar"
+   (Console Firebase > ⚙️ Configurações do projeto > Seus apps > Web).
+   Use o MESMO bloco nos dois arquivos: garcom/index.html e central/index.html. */
+const firebaseConfig = {
+  apiKey: "AIzaSyAeSmdHNn7LTk60DKO3DCGOTvPaNHdzMF4",
+  authDomain: "atendimento-bar.firebaseapp.com",
+  projectId: "atendimento-bar",
+  storageBucket: "atendimento-bar.firebasestorage.app",
+  messagingSenderId: "92179047707",
+  appId: "1:92179047707:web:08d82fc86c7da2f0215fbe",
+  measurementId: "G-NT0H4GQ3V7"
+};
+const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
+const VERSAO = "1.2";
+/* ================================================ */
+const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
+if (!CONFIG_OK) {
+  document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:system-ui;color:#ececec;background:#111214">
+    <div><div style="font-size:48px">⚙️</div><h2>Falta configurar o Firebase</h2>
+    <p style="color:#9b9ca3;max-width:360px">Abra este index.html e cole o <b>firebaseConfig</b> do projeto <b>atendimento-bar</b> no bloco CONFIGURAÇÃO, no início do script.</p></div></div>`;
+  throw new Error("firebaseConfig não preenchido");
+}
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+let db;
+try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+catch (e) { db = initializeFirestore(fbApp, {}); }
+
+const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config" };
+const col = n => collection(db, n);
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const cents = v => Math.round((Number(v) || 0) * 100);
+const brl = c => ((c || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brlR = v => brl(cents(v));
+const pad = n => String(n).padStart(2, "0");
+const hoje = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/* Dia de operação: o que acontece até as 6h conta para o dia anterior (noite do bar). */
+const diaOperacao = (d = new Date()) => hoje(new Date(d.getTime() - 6 * 3600e3));
+const fmtDia = s => s ? s.split("-").reverse().join("/") : "";
+const tsDate = t => t?.toDate ? t.toDate() : (t instanceof Date ? t : (t ? new Date(t) : null));
+const hora = t => { const d = tsDate(t); return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : "agora"; };
+const minutosDesde = t => { const d = tsDate(t); return d ? Math.max(0, Math.floor((Date.now() - d) / 60000)) : 0; };
+const duracao = t => { const m = minutosDesde(t); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${pad(m % 60)}`; };
+const rid = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+const parseNum = s => { s = String(s ?? "").trim().replace(/\s|R\$/g, ""); if (s.includes(",")) s = s.replace(/\./g, "").replace(",", "."); return Number(s) || 0; };
+const emailDe = u => (u?.email || "").toLowerCase();
+const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+const STATUS = {
+  recebido: { t: "Recebido", c: "st-rec" }, preparando: { t: "Preparando", c: "st-prep" },
+  pronto: { t: "Pronto", c: "st-pronto" }, entregue: { t: "Entregue", c: "st-ent" }, cancelado: { t: "Cancelado", c: "st-canc" }
+};
+const FORMAS = ["Pix", "Dinheiro", "Débito", "Crédito"];
+const DIVISOES = { itens: "Por consumo", igual: "Igual", unica: "Conta única" };
+
+function toast(msg, tipo = "") {
+  let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.className = "show " + tipo; clearTimeout(t._h); t._h = setTimeout(() => t.className = "", 2600);
+}
+
+let actx;
+function unlockAudio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) { } }
+document.addEventListener("pointerdown", unlockAudio);
+function beep(n = 2, vibrar = true) {
+  if (vibrar && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  if (!actx) return;
+  for (let i = 0; i < n; i++) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = "sine"; o.frequency.value = i % 2 ? 1175 : 880;
+    const t0 = actx.currentTime + i * 0.22;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + 0.21);
+  }
+}
+
+function abrirModal(html, { onClose, classe = "" } = {}) {
+  const w = document.createElement("div"); w.className = "modal-bg";
+  w.innerHTML = `<div class="modal ${classe}">${html}</div>`;
+  document.body.appendChild(w); document.body.classList.add("noscroll");
+  let fechado = false;
+  const fechar = () => { if (fechado) return; fechado = true; w.remove(); if (!$(".modal-bg")) document.body.classList.remove("noscroll"); onClose && onClose(); };
+  w.addEventListener("click", e => { if (e.target === w || e.target.closest("[data-fechar]")) fechar(); });
+  return { el: w.firstElementChild, fechar, get aberto() { return !fechado; } };
+}
+function confirmar(msg, okTxt = "Confirmar", perigo = false) {
+  return new Promise(res => {
+    let ok = false;
+    const m = abrirModal(`<p class="conf-msg">${esc(msg)}</p><div class="row end"><button class="btn ghost" data-fechar>Voltar</button><button class="btn ${perigo ? "danger" : ""}" id="cfOk">${esc(okTxt)}</button></div>`, { onClose: () => res(ok) });
+    $("#cfOk", m.el).onclick = () => { ok = true; m.fechar(); };
+  });
+}
+
+function instalarManifest({ nome, curto, emoji, cor = "#f5a524", fundo = "#111214" }) {
+  const ic = s => {
+    const c = document.createElement("canvas"); c.width = c.height = s; const x = c.getContext("2d");
+    x.fillStyle = cor; x.fillRect(0, 0, s, s);
+    x.font = `${Math.round(s * .5)}px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif`;
+    x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(emoji, s / 2, s * .54);
+    return c.toDataURL("image/png");
+  };
+  const base = location.href.split("#")[0].split("?")[0];
+  const scope = base.substring(0, base.lastIndexOf("/") + 1);
+  const i192 = ic(192), i512 = ic(512);
+  const m = { name: nome, short_name: curto, id: scope, start_url: base, scope, display: "standalone", orientation: "any",
+    background_color: fundo, theme_color: fundo,
+    icons: [{ src: i192, sizes: "192x192", type: "image/png", purpose: "any" }, { src: i512, sizes: "512x512", type: "image/png", purpose: "any" }, { src: i512, sizes: "512x512", type: "image/png", purpose: "maskable" }] };
+  const add = (rel, href) => { const l = document.createElement("link"); l.rel = rel; l.href = href; document.head.appendChild(l); };
+  add("manifest", URL.createObjectURL(new Blob([JSON.stringify(m)], { type: "application/manifest+json" })));
+  add("apple-touch-icon", i192); add("icon", i192);
+}
+
+const ERROS_LOGIN = {
+  "auth/invalid-credential": "E-mail ou senha incorretos", "auth/wrong-password": "E-mail ou senha incorretos",
+  "auth/user-not-found": "E-mail não cadastrado", "auth/invalid-email": "E-mail inválido",
+  "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos", "auth/network-request-failed": "Sem conexão com a internet",
+  "auth/email-already-in-use": "Este e-mail já tem login", "auth/weak-password": "Senha muito curta (mínimo 6 caracteres)",
+  "auth/operation-not-allowed": "Ative o login E-mail/senha no Firebase (Authentication > Método de login)"
+};
+const msgErro = e => ERROS_LOGIN[e.code] || ("Erro: " + (e.code || e.message));
+
+/* Liga o formulário de login (#lgEmail, #lgSenha, #lgEntrar, #lgEsqueci, #lgPrimeiro opcional) */
+function ligarLogin() {
+  const entrar = async () => {
+    unlockAudio();
+    const email = $("#lgEmail").value.trim().toLowerCase(), senha = $("#lgSenha").value;
+    if (!email || !senha) return toast("Informe e-mail e senha", "erro");
+    const b = $("#lgEntrar"); b.disabled = true; b.textContent = "Entrando…";
+    try { await signInWithEmailAndPassword(auth, email, senha); $("#lgSenha").value = ""; }
+    catch (e) { toast(msgErro(e), "erro"); }
+    b.disabled = false; b.textContent = "Entrar";
+  };
+  $("#lgEntrar").onclick = entrar;
+  $("#lgSenha").onkeydown = e => { if (e.key === "Enter") entrar(); };
+  $("#lgEsqueci").onclick = async () => {
+    const email = $("#lgEmail").value.trim().toLowerCase();
+    if (!email) return toast("Digite seu e-mail primeiro", "erro");
+    try { await sendPasswordResetEmail(auth, email); toast("Enviamos um link para redefinir a senha — veja o e-mail (e o spam)", "ok"); }
+    catch (e) { toast(msgErro(e), "erro"); }
+  };
+  $("#lgPrimeiro")?.addEventListener("click", async () => {
+    const email = $("#lgEmail").value.trim().toLowerCase(), senha = $("#lgSenha").value;
+    if (email !== DONO) return toast("O primeiro acesso é só para o e-mail do responsável", "erro");
+    if (senha.length < 6) return toast("Crie uma senha com pelo menos 6 caracteres", "erro");
+    try { await createUserWithEmailAndPassword(auth, email, senha); toast("Conta do responsável criada!", "ok"); }
+    catch (e) { toast(msgErro(e), "erro"); }
+  });
+}
+
+/* Cria o login de um garçom sem deslogar quem está usando a central */
+let appSec;
+async function criarLogin(email, senha) {
+  appSec = appSec || initializeApp(firebaseConfig, "cadastro");
+  const a2 = getAuth(appSec);
+  await setPersistence(a2, inMemoryPersistence);
+  await createUserWithEmailAndPassword(a2, email, senha);
+  await signOut(a2);
+}
+function resetarSenha(email) { return sendPasswordResetEmail(auth, email); }
+
+/* ---------- Divisão da conta ---------- */
+function dividir(v, n) { const b = Math.floor(v / n), r = v - b * n; return Array.from({ length: n }, (_, i) => b + (i < r ? 1 : 0)); }
+function calcConta(mesa, pedidos, cfg = {}) {
+  const divisao = mesa.divisao || "itens";
+  const pct = mesa.cobrarTaxa === false ? 0 : Number(cfg.taxaServico ?? 10);
+  const ocup = (mesa.ocupantes || []).length ? mesa.ocupantes : [{ id: "_mesa", nome: "Mesa" }];
+  const ids = ocup.map(o => o.id);
+  let pessoas = ocup.map(o => ({ id: o.id, nome: o.nome, clienteId: o.clienteId || null, subtotal: 0, taxa: 0, total: 0, linhas: [] }));
+  const P = Object.fromEntries(pessoas.map(p => [p.id, p]));
+  const agg = {}; let subtotal = 0;
+  for (const ped of pedidos) {
+    if (ped.status === "cancelado") continue;
+    for (const it of ped.itens || []) {
+      const q = it.qtd || 1, v = cents(it.preco) * q; subtotal += v;
+      const k = it.nome + "|" + it.preco;
+      agg[k] = agg[k] || { nome: it.nome, preco: it.preco, qtd: 0, total: 0 }; agg[k].qtd += q; agg[k].total += v;
+      if (divisao === "itens") {
+        let para = (it.para || []).filter(id => ids.includes(id)); if (!para.length) para = ids;
+        const partes = dividir(v, para.length);
+        para.forEach((id, i) => { P[id].subtotal += partes[i]; P[id].linhas.push({ nome: it.nome, qtd: q, frac: para.length > 1 ? `÷${para.length}` : "", valor: partes[i] }); });
+      }
+    }
+  }
+  if (divisao === "igual") { const partes = dividir(subtotal, pessoas.length); pessoas.forEach((p, i) => p.subtotal = partes[i]); }
+  if (divisao === "unica") pessoas = [{ id: "_mesa", nome: "Mesa (conta única)", clienteId: null, subtotal, taxa: 0, total: 0, linhas: [] }];
+  pessoas.forEach(p => { p.taxa = Math.round(p.subtotal * pct / 100); p.total = p.subtotal + p.taxa; });
+  const taxa = pessoas.reduce((s, p) => s + p.taxa, 0);
+  return { divisao, pct, subtotal, taxa, total: subtotal + taxa, pessoas, itens: Object.values(agg).sort((a, b) => b.total - a.total) };
+}
+const MESA_LIVRE = { status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
+/* Grava sem travar a tela (funciona offline: sincroniza quando a conexão voltar) */
+function salvar(promessa, msgOk) {
+  if (msgOk) toast(msgOk, "ok");
+  return promessa.catch(e => { console.error(e); toast("Falha ao salvar: " + (e.code || e.message), "erro"); });
+}
+function erroSnap(e) {
+  console.error(e);
+  toast(e.code === "permission-denied" ? "Sem permissão no banco — confira as regras do Firestore" : "Erro de conexão: " + e.code, "erro");
+}
+function nomeMesa(m) { return `Mesa ${m.numero}${m.nome ? " · " + m.nome : ""}`; }
+function contaTexto(nomeBar, mesa, c) {
+  let t = `*${nomeBar} — ${nomeMesa(mesa)}*\n`;
+  c.itens.forEach(i => t += `${i.qtd}x ${i.nome} — ${brl(i.total)}\n`);
+  t += `\nSubtotal: ${brl(c.subtotal)}\n`;
+  if (c.taxa) t += `Serviço (${c.pct}%): ${brl(c.taxa)}\n`;
+  t += `*Total: ${brl(c.total)}*\n`;
+  if (c.pessoas.length > 1) { t += `\n_Divisão: ${DIVISOES[c.divisao]}_\n`; c.pessoas.forEach(p => t += `${p.nome}: ${brl(p.total)}\n`); }
+  return t;
+}
+async function copiar(txt) {
+  try { await navigator.clipboard.writeText(txt); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  toast("Copiado!", "ok");
+}
+function itensHtml(itens, ocupantes = []) {
+  const N = Object.fromEntries((ocupantes || []).map(o => [o.id, o.nome]));
+  return (itens || []).map(it => {
+    const para = (it.para || []).map(id => N[id]).filter(Boolean);
+    return `<div class="it"><b>${it.qtd}x</b> ${esc(it.nome)} <span class="muted small">${brl(cents(it.preco) * it.qtd)}</span>
+      ${para.length ? `<div class="para">👤 ${esc(para.join(", "))}</div>` : ""}${it.obs ? `<div class="obs">↳ ${esc(it.obs)}</div>` : ""}</div>`;
+  }).join("");
+}
+function mesaCard(m, extra = {}) {
+  const st = m.status || "livre";
+  const flag = st === "fechamento" ? `<span class="flag conta">CONTA</span>` : (extra.prontos ? `<span class="flag pronto">${extra.prontos} PRONTO</span>` : "");
+  const inf = st === "livre" ? "Livre" : `${(m.ocupantes || []).length} pess. · ${duracao(m.abertaEm)}`;
+  return `<button class="mesa ${st}" data-mesa="${m.id}">${flag}<span class="n">${esc(m.numero)}</span>
+    <span class="nm">${esc(m.nome || (st === "livre" ? "" : (m.garcomNome || "")))}</span>
+    ${st !== "livre" ? `<span class="tot">${brl(extra.total || 0)}</span>` : ""}<span class="inf">${inf}</span></button>`;
+}
+
+
+instalarManifest({ nome: "Bar · Central", curto: "Central Bar", emoji: "🧾" });
+
+const S = { user: null, perfil: null, mesas: [], pedidos: [], produtos: [], clientes: [], garcons: [], cfg: { nomeBar: "Bar", taxaServico: 10 },
+  tela: "login", unsub: [], idsAnt: null, novos: new Set(), som: true, col: "recebido", sub: "clientes", modalMesa: null, rel: null, wake: null };
+try { S.som = localStorage.getItem("bar_som") !== "0"; } catch (e) { }
+
+/* ---------- Login ---------- */
+ligarLogin();
+$("#btnTrocar").onclick = () => signOut(auth);
+$("#btnTentar").onclick = () => verificar(S.user);
+$("#btnSair").onclick = async () => { if (await confirmar("Sair da conta neste aparelho?", "Sair")) signOut(auth); };
+onAuthStateChanged(auth, u => verificar(u));
+
+async function verificar(u) {
+  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null;
+  ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u));
+  if (!u) return mostrar("login");
+  const email = emailDe(u);
+  let perfil = null;
+  try { const d = await getDoc(doc(db, C.garcons, email)); if (d.exists()) perfil = d.data(); } catch (e) { console.warn(e); }
+  const ok = email === DONO || (perfil && perfil.ativo !== false && perfil.central === true);
+  if (!ok) { $("#semEmail").textContent = email; $("#btnSom").classList.add("hidden"); $("#btnTela").classList.add("hidden"); return mostrar("semacesso"); }
+  S.perfil = { nome: perfil?.nome || "Responsável", email, dono: email === DONO };
+  $("#quem").textContent = S.perfil.nome + " · Central";
+  iniciar();
+}
+
+function iniciar() {
+  S.unsub.push(onSnapshot(doc(db, C.config, "geral"), d => {
+    S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) };
+    $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Central"; render();
+  }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.mesas), s => { S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); render(); }, erroSnap));
+  S.unsub.push(onSnapshot(query(col(C.pedidos), where("aberto", "==", true)), s => {
+    const peds = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (S.idsAnt) {
+      const novos = peds.filter(p => !S.idsAnt.has(p.id) && p.status === "recebido");
+      if (novos.length) { novos.forEach(p => S.novos.add(p.id)); if (S.som) beep(2, false); toast(`🆕 Novo pedido — ${[...new Set(novos.map(p => "Mesa " + p.mesaNumero))].join(", ")}`); setTimeout(() => { novos.forEach(p => S.novos.delete(p.id)); }, 5000); }
+    }
+    S.idsAnt = new Set(peds.map(p => p.id));
+    S.pedidos = peds; render();
+  }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.produtos), s => { S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome)); if (S.tela === "cardapio") renderCardapio(); }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.clientes), s => { S.clientes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.nome.localeCompare(b.nome)); if (S.tela === "mais") renderMais(); }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.garcons), s => { S.garcons = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || "")); if (S.tela === "mais") renderMais(); }, erroSnap));
+  mostrar("pedidos");
+}
+
+/* ---------- Navegação / topo ---------- */
+function mostrar(t) {
+  S.tela = t;
+  $$(".tela").forEach(e => e.classList.add("hidden")); $("#t-" + t).classList.remove("hidden");
+  $("#tabs").classList.toggle("hidden", ["login", "semacesso"].includes(t));
+  $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  if (t === "relatorio" && !S.rel) { atalho("hoje"); }
+  render(); window.scrollTo(0, 0);
+}
+$$("#tabs button").forEach(b => b.onclick = () => mostrar(b.dataset.tab));
+$$("#segCols button").forEach(b => b.onclick = () => { S.col = b.dataset.c; $$("#segCols button").forEach(x => x.classList.toggle("on", x === b)); $$(".kcol").forEach(k => k.classList.toggle("on", k.dataset.col === S.col)); });
+$$("#segMais button").forEach(b => b.onclick = () => { S.sub = b.dataset.s; $$("#segMais button").forEach(x => x.classList.toggle("on", x === b)); renderMais(); });
+const somIcone = () => { $("#btnSom").textContent = S.som ? "🔔" : "🔕"; };
+$("#btnSom").onclick = () => { S.som = !S.som; try { localStorage.setItem("bar_som", S.som ? "1" : "0"); } catch (e) { } somIcone(); unlockAudio(); if (S.som) beep(1, false); toast(S.som ? "Som ligado" : "Som desligado"); };
+somIcone();
+async function pedirWake() { try { S.wake = await navigator.wakeLock.request("screen"); S.wake.addEventListener("release", () => { if (!S.wakeQuer) $("#btnTela").textContent = "🔅"; }); $("#btnTela").textContent = "🔆"; } catch (e) { toast("Este aparelho não permite manter a tela ligada", "erro"); S.wakeQuer = false; } }
+$("#btnTela").onclick = async () => {
+  if (S.wakeQuer) { S.wakeQuer = false; await S.wake?.release(); S.wake = null; $("#btnTela").textContent = "🔅"; toast("Tela pode apagar"); }
+  else { S.wakeQuer = true; await pedirWake(); if (S.wakeQuer) toast("Tela vai ficar ligada"); }
+};
+document.addEventListener("visibilitychange", () => { if (S.wakeQuer && document.visibilityState === "visible") pedirWake(); });
+setInterval(() => { if (["pedidos", "mesas"].includes(S.tela)) render(); }, 30000);
+
+function render() {
+  if (!S.perfil) return;
+  if (S.tela === "pedidos") renderPedidos();
+  else if (S.tela === "mesas") renderMesas();
+  else if (S.tela === "cardapio") renderCardapio();
+  else if (S.tela === "mais") renderMais();
+  if (S.modalMesa?.md.aberto) renderFechamento();
+  const nRec = S.pedidos.filter(p => p.status === "recebido").length;
+  $("#dotPed").textContent = nRec; $("#dotPed").classList.toggle("hidden", !nRec);
+  const nConta = S.mesas.filter(m => m.status === "fechamento").length;
+  $("#dotConta").textContent = nConta; $("#dotConta").classList.toggle("hidden", !nConta);
+}
+const mesaDe = p => S.mesas.find(m => m.id === p.mesaId);
+const pedidosDa = m => S.pedidos.filter(p => p.mesaId === m.id && p.sessao === m.sessao);
+const byT = (a, b) => (tsDate(a.criadoEm) || new Date()) - (tsDate(b.criadoEm) || new Date());
+
+/* ---------- Pedidos (fila) ---------- */
+const PROX = { recebido: ["preparando", "Preparar", "prep"], preparando: ["pronto", "Pronto ✓", "ok"], pronto: ["entregue", "Entregue", "ghost"] };
+function renderPedidos() {
+  const grupos = { recebido: [], preparando: [], pronto: [] };
+  S.pedidos.forEach(p => grupos[p.status]?.push(p));
+  Object.values(grupos).forEach(g => g.sort(byT));
+  const card = p => {
+    const m = mesaDe(p), min = minutosDesde(p.criadoEm), px = PROX[p.status];
+    return `<div class="card pedido ${S.novos.has(p.id) ? "novo" : ""}">
+      <div class="row between"><span class="mesa-n">Mesa ${esc(p.mesaNumero)}</span>
+        <span class="small ${min >= 15 && p.status !== "pronto" ? "atraso" : "muted"}">${hora(p.criadoEm)} · ${min} min</span></div>
+      <div class="small muted" style="margin-bottom:4px">${esc(p.garcomNome || "")}${p.mesaNome ? " · " + esc(p.mesaNome) : ""}</div>
+      ${itensHtml(p.itens, m?.ocupantes)}
+      <div class="row between" style="margin-top:10px">
+        <button class="btn danger sm" data-canc="${p.id}">Cancelar</button>
+        <button class="btn ${px[2]} sm" data-prox="${p.id}" data-st="${px[0]}">${px[1]}</button></div></div>`;
+  };
+  const vazio = t => `<div class="empty">${t}</div>`;
+  $("#colRec").innerHTML = grupos.recebido.map(card).join("") || vazio("Sem pedidos novos.");
+  $("#colPrep").innerHTML = grupos.preparando.map(card).join("") || vazio("Nada em preparo.");
+  $("#colPro").innerHTML = grupos.pronto.map(card).join("") || vazio("Nada aguardando entrega.");
+  [["nRec", "recebido"], ["nPrep", "preparando"], ["nPro", "pronto"]].forEach(([id, k]) => { $("#" + id).textContent = grupos[k].length || ""; $("#" + id + "2").textContent = grupos[k].length; });
+  $$("[data-prox]").forEach(b => b.onclick = () => {
+    const st = b.dataset.st, extra = st === "pronto" ? { prontoEm: serverTimestamp() } : st === "entregue" ? { entregueEm: serverTimestamp() } : { preparoEm: serverTimestamp() };
+    salvar(updateDoc(doc(db, C.pedidos, b.dataset.prox), { status: st, ...extra }));
+  });
+  $$("[data-canc]").forEach(b => b.onclick = async () => {
+    if (await confirmar("Cancelar este pedido? Ele sai da conta da mesa.", "Cancelar pedido", true))
+      salvar(updateDoc(doc(db, C.pedidos, b.dataset.canc), { status: "cancelado", canceladoPor: S.perfil.nome }), "Pedido cancelado");
+  });
+}
+
+/* ---------- Mesas ---------- */
+function renderMesas() {
+  const pedindo = S.mesas.filter(m => m.status === "fechamento");
+  $("#alertasConta").innerHTML = pedindo.map(m => `<button class="alerta" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center" data-mesa="${m.id}">
+    <span>🧾 <b>${esc(nomeMesa(m))}</b> pediu a conta · ${esc(m.garcomNome || "")}</span><span class="btn info sm">Fechar</span></button>`).join("");
+  const ab = S.mesas.filter(m => (m.status || "livre") !== "livre");
+  const totAb = ab.reduce((s, m) => s + calcConta(m, pedidosDa(m), S.cfg).total, 0);
+  $("#mesasResumo").textContent = S.mesas.length ? `${ab.length} ocupadas · ${S.mesas.length - ab.length} livres · em aberto ${brl(totAb)}` : "";
+  $("#mesasGrid").innerHTML = S.mesas.length ? S.mesas.map(m => {
+    const peds = pedidosDa(m);
+    return mesaCard(m, { total: calcConta(m, peds, S.cfg).total, prontos: peds.filter(p => p.status === "pronto").length });
+  }).join("") : `<div class="empty" style="grid-column:1/-1">Nenhuma mesa cadastrada.<br><button class="btn" id="criarPrimeiras" style="margin-top:12px">Criar mesas</button></div>`;
+  $$("#t-mesas [data-mesa]").forEach(b => b.onclick = () => {
+    const m = S.mesas.find(x => x.id === b.dataset.mesa);
+    if ((m.status || "livre") === "livre") editarMesa(m); else abrirFechamento(m);
+  });
+  $("#criarPrimeiras")?.addEventListener("click", gerenciarMesas);
+}
+$("#gerMesas").onclick = gerenciarMesas;
+
+function gerenciarMesas() {
+  const ult = S.mesas.length ? Math.max(...S.mesas.map(m => m.numero)) : 0;
+  const md = abrirModal(`<div class="mh"><h2>Gerenciar mesas</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="muted small">Crie várias mesas de uma vez. Números já existentes são ignorados.</p>
+    <div class="row"><div class="grow"><label>Da mesa</label><input id="de" type="number" inputmode="numeric" value="${ult + 1}"></div>
+      <div class="grow"><label>Até a mesa</label><input id="ate" type="number" inputmode="numeric" value="${ult + 10}"></div>
+      <div class="grow"><label>Lugares</label><input id="lug" type="number" inputmode="numeric" value="4"></div></div>
+    <button class="btn block" id="criar" style="margin-top:14px">Criar mesas</button>
+    <p class="muted small" style="margin-top:14px">Para editar nome/lugares ou excluir, toque numa mesa livre na tela de Mesas.</p>`);
+  $("#criar", md.el).onclick = () => {
+    const de = parseInt($("#de", md.el).value), ate = parseInt($("#ate", md.el).value), lug = parseInt($("#lug", md.el).value) || 4;
+    if (!(de > 0) || !(ate >= de) || ate - de > 200) return toast("Intervalo inválido", "erro");
+    const existentes = new Set(S.mesas.map(m => m.numero));
+    const b = writeBatch(db); let n = 0;
+    for (let i = de; i <= ate; i++) if (!existentes.has(i)) { b.set(doc(db, C.mesas, "m" + i), { numero: i, nome: "", lugares: lug, ...MESA_LIVRE }); n++; }
+    if (!n) return toast("Essas mesas já existem");
+    salvar(b.commit(), `${n} mesa(s) criada(s)`); md.fechar();
+  };
+}
+function editarMesa(m) {
+  const md = abrirModal(`<div class="mh"><h2>Mesa ${m.numero}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome/local (opcional)</label><input id="nm" value="${esc(m.nome || "")}" placeholder="Ex.: Varanda, Balcão">
+    <label>Lugares</label><input id="lg" type="number" inputmode="numeric" value="${m.lugares || 4}">
+    <div class="row" style="margin-top:16px"><button class="btn danger" id="del">Excluir</button><button class="btn grow" id="ok">Salvar</button></div>`);
+  $("#ok", md.el).onclick = () => { salvar(updateDoc(doc(db, C.mesas, m.id), { nome: $("#nm", md.el).value.trim(), lugares: parseInt($("#lg", md.el).value) || 4 }), "Mesa salva"); md.fechar(); };
+  $("#del", md.el).onclick = async () => { if (await confirmar(`Excluir a mesa ${m.numero}?`, "Excluir", true)) { salvar(deleteDoc(doc(db, C.mesas, m.id)), "Mesa excluída"); md.fechar(); } };
+}
+
+/* ---------- Fechamento / pagamento ---------- */
+function abrirFechamento(m) {
+  const md = abrirModal(`<div id="fech"></div>`, { onClose: () => S.modalMesa = null });
+  S.modalMesa = { id: m.id, md }; renderFechamento();
+}
+function renderFechamento() {
+  const { id, md } = S.modalMesa; const box = $("#fech", md.el);
+  const m = S.mesas.find(x => x.id === id);
+  if (!m || (m.status || "livre") === "livre") { md.fechar(); return; }
+  const peds = pedidosDa(m), c = calcConta(m, peds, S.cfg), pg = m.pagamentos || {}, div = m.divisao || "itens";
+  const pend = peds.filter(p => ["recebido", "preparando", "pronto"].includes(p.status)).length;
+  const pagoTot = c.pessoas.reduce((s, p) => s + (pg[p.id] ? p.total : 0), 0);
+  const formaSel = S._forma || "Pix";
+  box.innerHTML = `<div class="mh"><h2>${esc(nomeMesa(m))}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <div class="muted small">${esc(m.garcomNome || "")} · aberta às ${hora(m.abertaEm)} (${duracao(m.abertaEm)}) · ${(m.ocupantes || []).length} pessoa(s)</div>
+    ${pend ? `<div class="alerta" style="margin-top:10px">⚠️ ${pend} pedido(s) ainda não entregue(s). Ao fechar, serão marcados como entregues.</div>` : ""}
+    <h3>Consumo</h3>
+    <table class="t"><tbody>${c.itens.map(i => `<tr><td>${i.qtd}x ${esc(i.nome)}</td><td class="r">${brl(i.total)}</td></tr>`).join("") || `<tr><td class="muted">Sem consumo</td></tr>`}</tbody></table>
+    <h3>Divisão</h3>
+    <div class="seg" id="fDiv">${Object.entries(DIVISOES).map(([k, t]) => `<button data-d="${k}" class="${div === k ? "on" : ""}">${t}</button>`).join("")}</div>
+    <label class="switch"><span>Taxa de serviço (${S.cfg.taxaServico}%)</span><input type="checkbox" id="fTaxa" ${m.cobrarTaxa !== false ? "checked" : ""}></label>
+    <div class="card" style="padding:4px 12px">${c.pessoas.map(p => {
+      const pp = pg[p.id];
+      return `<div class="pessoa"><div class="grow"><b>${esc(p.nome)}</b>
+        ${p.linhas.length ? `<div class="linhas">${p.linhas.map(l => `${l.qtd}x ${esc(l.nome)}${l.frac ? " " + l.frac : ""}`).join(" · ")}</div>` : ""}
+        ${pp ? `<div class="pag"><span class="pago">✓ Recebido · ${esc(pp.forma)}${cents(pp.valor) !== p.total ? ` (${brlR(pp.valor)} — valor mudou)` : ""}</span><button class="btn ghost sm" data-desf="${p.id}">desfazer</button></div>`
+             : `<div class="pag"><select data-forma="${p.id}">${FORMAS.map(f => `<option ${f === formaSel ? "selected" : ""}>${f}</option>`).join("")}</select><button class="btn ok sm" data-rec="${p.id}" data-v="${p.total}">Receber</button></div>`}
+        </div><span class="v">${brl(p.total)}</span></div>`;
+    }).join("")}</div>
+    <div class="kv"><span class="muted">Subtotal</span><span>${brl(c.subtotal)}</span></div>
+    ${c.taxa ? `<div class="kv"><span class="muted">Serviço ${c.pct}%</span><span>${brl(c.taxa)}</span></div>` : ""}
+    <div class="kv tot"><span>Total</span><span>${brl(c.total)}</span></div>
+    <div class="kv"><span class="muted">Recebido</span><span>${brl(pagoTot)}</span></div>
+    <div class="kv"><span class="muted">Falta receber</span><span>${brl(c.total - pagoTot)}</span></div>
+    <div class="row" style="margin-top:14px"><button class="btn ghost" id="fCop">Copiar conta</button>
+      ${m.status === "fechamento" ? `<button class="btn ghost" id="fReab">Reabrir</button>` : ""}
+      <button class="btn grow" id="fFechar">Fechar mesa</button></div>`;
+  const ref = doc(db, C.mesas, m.id);
+  $$("#fDiv button", box).forEach(b => b.onclick = () => salvar(updateDoc(ref, { divisao: b.dataset.d })));
+  $("#fTaxa", box).onchange = e => salvar(updateDoc(ref, { cobrarTaxa: e.target.checked }));
+  $$("[data-forma]", box).forEach(s => s.onchange = () => S._forma = s.value);
+  $$("[data-rec]", box).forEach(b => b.onclick = () => {
+    const pid = b.dataset.rec, forma = $(`[data-forma="${pid}"]`, box).value;
+    salvar(updateDoc(ref, { [`pagamentos.${pid}`]: { forma, valor: Number(b.dataset.v) / 100, por: S.perfil.nome } }), "Pagamento registrado");
+  });
+  $$("[data-desf]", box).forEach(b => b.onclick = () => { const n = { ...pg }; delete n[b.dataset.desf]; salvar(updateDoc(ref, { pagamentos: n })); });
+  $("#fCop", box).onclick = () => copiar(contaTexto(S.cfg.nomeBar, m, c));
+  $("#fReab", box)?.addEventListener("click", () => salvar(updateDoc(ref, { status: "aberta", contaPedidaEm: null })));
+  $("#fFechar", box).onclick = () => fecharMesa(m, peds, c);
+}
+async function fecharMesa(m, peds, c) {
+  const pg = m.pagamentos || {};
+  const faltam = c.pessoas.filter(p => !pg[p.id]);
+  if (faltam.length && !await confirmar(`${faltam.length === c.pessoas.length ? "Nenhum pagamento registrado" : faltam.length + " pessoa(s) sem pagamento registrado"}. Fechar mesmo assim?`, "Fechar mesa")) return;
+  if (!faltam.length && !await confirmar(`Fechar ${nomeMesa(m)} — total ${brl(c.total)}?`, "Fechar mesa")) return;
+  const b = writeBatch(db);
+  b.set(doc(col(C.contas)), {
+    mesaId: m.id, mesaNumero: m.numero, mesaNome: m.nome || "", sessao: m.sessao,
+    abertaEm: m.abertaEm || null, fechadaEm: serverTimestamp(), dia: diaOperacao(tsDate(m.abertaEm) || new Date()),
+    garcomEmail: m.garcomEmail || "", garcomNome: m.garcomNome || "", fechadoPor: S.perfil.nome,
+    divisao: c.divisao, pct: c.pct, subtotal: c.subtotal / 100, taxa: c.taxa / 100, total: c.total / 100, qtdPessoas: (m.ocupantes || []).length,
+    pessoas: c.pessoas.map(p => ({ nome: p.nome, clienteId: p.clienteId || null, subtotal: p.subtotal / 100, taxa: p.taxa / 100, total: p.total / 100, forma: pg[p.id]?.forma || "Não informado" })),
+    itens: c.itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: i.total / 100 }))
+  });
+  peds.forEach(p => b.update(doc(db, C.pedidos, p.id), { aberto: false, ...(["recebido", "preparando", "pronto"].includes(p.status) ? { status: "entregue" } : {}) }));
+  b.update(doc(db, C.mesas, m.id), { ...MESA_LIVRE });
+  salvar(b.commit(), `Mesa ${m.numero} fechada · ${brl(c.total)}`);
+  S.modalMesa?.md.fechar();
+}
+
+/* ---------- Cardápio ---------- */
+$("#buscaProd").oninput = () => renderCardapio();
+$("#novoProd").onclick = () => editarProduto(null);
+const EXEMPLO = [["Chopp & Cervejas", "Chopp 300ml", 12], ["Chopp & Cervejas", "Chopp 500ml", 16], ["Chopp & Cervejas", "Cerveja long neck", 12], ["Chopp & Cervejas", "Cerveja 600ml", 18],
+  ["Drinks", "Caipirinha", 22], ["Drinks", "Gin tônica", 28], ["Drinks", "Dose de cachaça", 8],
+  ["Sem álcool", "Refrigerante lata", 7], ["Sem álcool", "Água", 5], ["Sem álcool", "Suco natural", 10],
+  ["Porções", "Batata frita", 32], ["Porções", "Calabresa acebolada", 38], ["Porções", "Frango a passarinho", 42], ["Porções", "Isca de peixe", 48], ["Porções", "Pastel (6 un.)", 30]];
+function renderCardapio() {
+  const b = norm($("#buscaProd").value);
+  const lista = S.produtos.filter(p => !b || norm(p.nome).includes(b) || norm(p.categoria).includes(b));
+  if (!S.produtos.length) {
+    $("#listaProd").innerHTML = `<div class="empty">Cardápio vazio.<br><button class="btn ghost" id="exemplo" style="margin-top:12px">Carregar cardápio de exemplo</button></div>`;
+    $("#exemplo").onclick = () => { const bt = writeBatch(db); EXEMPLO.forEach(([categoria, nome, preco]) => bt.set(doc(col(C.produtos)), { categoria, nome, preco, ativo: true })); salvar(bt.commit(), "Exemplo carregado — ajuste os preços"); };
+    return;
+  }
+  let ult = null;
+  $("#listaProd").innerHTML = `<div class="list">${lista.map(p => {
+    const h = p.categoria !== ult ? `<h3>${esc(p.categoria || "Outros")}</h3>` : ""; ult = p.categoria;
+    return `${h}<div class="prodrow ${p.ativo === false ? "off" : ""}"><button class="pn" data-ed="${p.id}"><b>${esc(p.nome)}</b><br><small class="muted">${brlR(p.preco)}${p.ativo === false ? " · esgotado" : ""}</small></button>
+      <label class="switch" style="padding:0" title="Disponível"><input type="checkbox" data-at="${p.id}" ${p.ativo !== false ? "checked" : ""}></label></div>`;
+  }).join("") || `<div class="empty">Nada encontrado.</div>`}</div>`;
+  $$("[data-ed]").forEach(x => x.onclick = () => editarProduto(S.produtos.find(p => p.id === x.dataset.ed)));
+  $$("[data-at]").forEach(x => x.onchange = () => salvar(updateDoc(doc(db, C.produtos, x.dataset.at), { ativo: x.checked }), x.checked ? "Disponível" : "Marcado como esgotado"));
+}
+function editarProduto(p) {
+  const cats = [...new Set(S.produtos.map(x => x.categoria).filter(Boolean))];
+  const md = abrirModal(`<div class="mh"><h2>${p ? "Editar produto" : "Novo produto"}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome *</label><input id="pn" value="${esc(p?.nome || "")}">
+    <label>Categoria</label><input id="pc" list="dlCat" value="${esc(p?.categoria || "")}" placeholder="Ex.: Porções"><datalist id="dlCat">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    <label>Preço (R$) *</label><input id="pp" inputmode="decimal" value="${p ? String(p.preco).replace(".", ",") : ""}" placeholder="0,00">
+    <label class="switch"><span>Disponível</span><input type="checkbox" id="pa" ${p?.ativo === false ? "" : "checked"}></label>
+    <div class="row" style="margin-top:12px">${p ? `<button class="btn danger" id="del">Excluir</button>` : ""}<button class="btn grow" id="ok">Salvar</button></div>`);
+  $("#ok", md.el).onclick = () => {
+    const d = { nome: $("#pn", md.el).value.trim(), categoria: $("#pc", md.el).value.trim() || "Outros", preco: Math.round(parseNum($("#pp", md.el).value) * 100) / 100, ativo: $("#pa", md.el).checked };
+    if (!d.nome || !(d.preco > 0)) return toast("Informe nome e preço", "erro");
+    salvar(p ? updateDoc(doc(db, C.produtos, p.id), d) : addDoc(col(C.produtos), d), "Produto salvo"); md.fechar();
+  };
+  $("#del", md.el)?.addEventListener("click", async () => { if (await confirmar(`Excluir “${p.nome}” do cardápio?`, "Excluir", true)) { salvar(deleteDoc(doc(db, C.produtos, p.id)), "Produto excluído"); md.fechar(); } });
+}
+
+/* ---------- Mais: clientes, equipe, config ---------- */
+$("#buscaCli").oninput = () => renderMais();
+$("#novoCli").onclick = () => editarCliente(null);
+$("#novoGar").onclick = () => editarGarcom(null);
+function renderMais() {
+  ["clientes", "equipe", "config"].forEach(s => $("#sub-" + s).classList.toggle("hidden", s !== S.sub));
+  if (S.sub === "clientes") {
+    const b = norm($("#buscaCli").value);
+    const lista = S.clientes.filter(c => !b || norm(c.nome).includes(b) || (c.telefone || "").includes(b));
+    $("#listaCli").innerHTML = lista.map(c => `<button class="card" style="width:100%;text-align:left" data-cli="${c.id}"><b>${esc(c.nome)}</b>${c.telefone ? ` <span class="muted small">· ${esc(c.telefone)}</span>` : ""}${c.obs ? `<div class="small muted">${esc(c.obs)}</div>` : ""}</button>`).join("")
+      || `<div class="empty">${S.clientes.length ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado."}</div>`;
+    $$("[data-cli]").forEach(x => x.onclick = () => editarCliente(S.clientes.find(c => c.id === x.dataset.cli)));
+  }
+  if (S.sub === "equipe") {
+    $("#listaGar").innerHTML = `<div class="card"><b>${esc(DONO)}</b> <span class="badge st-rec">Responsável</span><div class="small muted">Acesso total — não precisa de cadastro.</div></div>` +
+      S.garcons.map(g => `<button class="card" style="width:100%;text-align:left" data-gar="${esc(g.id)}"><b>${esc(g.nome || "")}</b>
+        ${g.central ? `<span class="badge st-prep">Central</span>` : ""} ${g.ativo === false ? `<span class="badge st-canc">Inativo</span>` : ""}
+        <div class="small muted">${esc(g.id)}</div></button>`).join("");
+    $$("[data-gar]").forEach(x => x.onclick = () => editarGarcom(S.garcons.find(g => g.id === x.dataset.gar)));
+  }
+  if (S.sub === "config") renderConfig();
+}
+function editarCliente(c) {
+  const md = abrirModal(`<div class="mh"><h2>${c ? "Editar cliente" : "Novo cliente"}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome *</label><input id="cn" value="${esc(c?.nome || "")}">
+    <label>Telefone</label><input id="ct" inputmode="tel" value="${esc(c?.telefone || "")}">
+    <label>Observações</label><textarea id="co" rows="2">${esc(c?.obs || "")}</textarea>
+    <div class="row" style="margin-top:16px">${c ? `<button class="btn danger" id="del">Excluir</button>` : ""}<button class="btn grow" id="ok">Salvar</button></div>`);
+  $("#ok", md.el).onclick = () => {
+    const d = { nome: $("#cn", md.el).value.trim(), telefone: $("#ct", md.el).value.trim(), obs: $("#co", md.el).value.trim(), atualizadoEm: serverTimestamp() };
+    if (!d.nome) return toast("Informe o nome", "erro");
+    salvar(c ? updateDoc(doc(db, C.clientes, c.id), d) : addDoc(col(C.clientes), { ...d, criadoEm: serverTimestamp(), criadoPor: S.perfil.nome }), "Cliente salvo"); md.fechar();
+  };
+  $("#del", md.el)?.addEventListener("click", async () => { if (await confirmar(`Excluir o cliente ${c.nome}?`, "Excluir", true)) { salvar(deleteDoc(doc(db, C.clientes, c.id)), "Cliente excluído"); md.fechar(); } });
+}
+function editarGarcom(g) {
+  const md = abrirModal(`<div class="mh"><h2>${g ? "Editar garçom" : "Novo garçom"}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome *</label><input id="gn" value="${esc(g?.nome || "")}">
+    <label>E-mail (será o login) *</label><input id="ge" type="email" inputmode="email" value="${esc(g?.id || "")}" ${g ? "disabled" : ""} placeholder="nome@email.com">
+    ${g ? "" : `<label>Senha inicial * (mín. 6 caracteres)</label><input id="gs" type="text" autocomplete="off" placeholder="Ex.: bar2026">
+      <p class="small muted" style="margin-top:6px">Passe o e-mail e a senha para o garçom. Ele pode trocar depois em “Esqueci a senha”.</p>`}
+    <label class="switch"><span>Ativo (pode usar o app)</span><input type="checkbox" id="ga" ${g?.ativo === false ? "" : "checked"}></label>
+    <label class="switch"><span>Acesso à central (caixa/cozinha)</span><input type="checkbox" id="gc" ${g?.central ? "checked" : ""}></label>
+    ${g ? `<button class="btn ghost block" id="rs" style="margin-top:6px">Enviar e-mail para redefinir a senha</button>` : ""}
+    <div class="row" style="margin-top:12px">${g ? `<button class="btn danger" id="del">Remover</button>` : ""}<button class="btn grow" id="ok">Salvar</button></div>`);
+  $("#ok", md.el).onclick = async () => {
+    const email = (g?.id || $("#ge", md.el).value).trim().toLowerCase(), nome = $("#gn", md.el).value.trim();
+    if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Informe nome e e-mail válido", "erro");
+    const perfil = { nome, ativo: $("#ga", md.el).checked, central: $("#gc", md.el).checked };
+    if (!g) {
+      const senha = $("#gs", md.el).value;
+      if (senha.length < 6) return toast("Senha com pelo menos 6 caracteres", "erro");
+      const bt = $("#ok", md.el); bt.disabled = true; bt.textContent = "Criando login…";
+      try { await criarLogin(email, senha); }
+      catch (e) {
+        if (e.code !== "auth/email-already-in-use") { bt.disabled = false; bt.textContent = "Salvar"; return toast(msgErro(e), "erro"); }
+        toast("Este e-mail já tinha login — mantida a senha antiga");
+      }
+    }
+    salvar(setDoc(doc(db, C.garcons, email), perfil, { merge: true }), g ? "Equipe atualizada" : `Login criado: ${email}`); md.fechar();
+  };
+  $("#rs", md.el)?.addEventListener("click", async () => {
+    try { await resetarSenha(g.id); toast("E-mail de redefinição enviado para " + g.id, "ok"); } catch (e) { toast(msgErro(e), "erro"); }
+  });
+  $("#del", md.el)?.addEventListener("click", async () => {
+    if (await confirmar(`Remover ${g.nome} da equipe? O login dele deixa de funcionar no app.`, "Remover", true)) { salvar(deleteDoc(doc(db, C.garcons, g.id)), "Removido"); md.fechar(); }
+  });
+}
+function renderConfig() {
+  const urlG = new URL("../garcom/", location.href).href, urlC = location.href.split("#")[0].split("?")[0];
+  $("#sub-config").innerHTML = `<div class="card">
+      <label>Nome do bar</label><input id="cfNome" value="${esc(S.cfg.nomeBar)}">
+      <label>Taxa de serviço (%)</label><input id="cfTaxa" inputmode="decimal" value="${esc(String(S.cfg.taxaServico).replace(".", ","))}">
+      <button class="btn block" id="cfSalvar" style="margin-top:14px">Salvar</button></div>
+    <h3>Links</h3>
+    <div class="card"><div class="small muted">App do garçom (envie para a equipe)</div><div style="word-break:break-all;margin:4px 0 8px">${esc(urlG)}</div>
+      <button class="btn ghost sm" id="cpG">Copiar link do garçom</button>
+      <div class="small muted" style="margin-top:12px">Central</div><div style="word-break:break-all;margin:4px 0 8px">${esc(urlC)}</div>
+      <button class="btn ghost sm" id="cpC">Copiar link da central</button></div>
+    <p class="muted small" style="margin-top:14px">Versão ${VERSAO} · projeto atendimento-bar · dia de operação vira às 6h.</p>`;
+  $("#cfSalvar").onclick = () => {
+    const d = { nomeBar: $("#cfNome").value.trim() || "Bar", taxaServico: parseNum($("#cfTaxa").value) };
+    if (d.taxaServico < 0 || d.taxaServico > 30) return toast("Taxa entre 0 e 30%", "erro");
+    salvar(setDoc(doc(db, C.config, "geral"), d, { merge: true }), "Configurações salvas");
+  };
+  $("#cpG").onclick = () => copiar(urlG); $("#cpC").onclick = () => copiar(urlC);
+}
+
+/* ---------- Relatório ---------- */
+$$("#atalhos [data-r]").forEach(b => b.onclick = () => atalho(b.dataset.r));
+$("#rGerar").onclick = () => { $$("#atalhos .chip").forEach(x => x.classList.remove("on")); gerarRelatorio(); };
+$("#rImprimir").onclick = () => window.print();
+$("#rCopiar").onclick = () => S.rel ? copiar(S.rel.texto) : toast("Gere o relatório primeiro");
+function atalho(r) {
+  $$("#atalhos .chip").forEach(x => x.classList.toggle("on", x.dataset.r === r));
+  const base = new Date(Date.now() - 6 * 3600e3); let de, ate = hoje(base);
+  if (r === "hoje") de = ate;
+  if (r === "ontem") { de = ate = hoje(new Date(base.getTime() - 864e5)); }
+  if (r === "7") de = hoje(new Date(base.getTime() - 6 * 864e5));
+  if (r === "mes") de = hoje(new Date(base.getFullYear(), base.getMonth(), 1));
+  if (r === "mesant") { de = hoje(new Date(base.getFullYear(), base.getMonth() - 1, 1)); ate = hoje(new Date(base.getFullYear(), base.getMonth(), 0)); }
+  $("#rDe").value = de; $("#rAte").value = ate; gerarRelatorio();
+}
+async function gerarRelatorio() {
+  const de = $("#rDe").value, ate = $("#rAte").value;
+  if (!de || !ate || de > ate) return toast("Período inválido", "erro");
+  $("#relConteudo").innerHTML = `<div class="empty">Carregando…</div>`;
+  let contas, peds;
+  try {
+    const [a, b] = await Promise.all([
+      getDocs(query(col(C.contas), where("dia", ">=", de), where("dia", "<=", ate))),
+      getDocs(query(col(C.pedidos), where("dia", ">=", de), where("dia", "<=", ate)))]);
+    contas = a.docs.map(d => ({ id: d.id, ...d.data() })); peds = b.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) { erroSnap(e); $("#relConteudo").innerHTML = `<div class="empty">Não foi possível carregar.</div>`; return; }
+
+  const tot = contas.reduce((s, c) => s + cents(c.total), 0), taxa = contas.reduce((s, c) => s + cents(c.taxa), 0);
+  const pessoas = contas.reduce((s, c) => s + (c.qtdPessoas || c.pessoas?.length || 0), 0);
+  const formas = {}; contas.forEach(c => (c.pessoas || []).forEach(p => formas[p.forma] = (formas[p.forma] || 0) + cents(p.total)));
+  const itens = {}; contas.forEach(c => (c.itens || []).forEach(i => { const k = i.nome; itens[k] = itens[k] || { nome: i.nome, qtd: 0, total: 0 }; itens[k].qtd += i.qtd; itens[k].total += cents(i.total); }));
+  const topItens = Object.values(itens).sort((a, b) => b.qtd - a.qtd || b.total - a.total);
+  const gar = {}; peds.filter(p => p.status !== "cancelado").forEach(p => {
+    const g = gar[p.garcomEmail] = gar[p.garcomEmail] || { nome: p.garcomNome || p.garcomEmail, pedidos: 0, valor: 0, mesas: 0 };
+    g.pedidos++; g.valor += (p.itens || []).reduce((s, i) => s + cents(i.preco) * i.qtd, 0);
+  });
+  contas.forEach(c => { if (gar[c.garcomEmail]) gar[c.garcomEmail].mesas++; });
+  const garL = Object.values(gar).sort((a, b) => b.valor - a.valor);
+  const canc = peds.filter(p => p.status === "cancelado").length;
+  const ab = S.mesas.filter(m => (m.status || "livre") !== "livre");
+  const emAberto = ab.reduce((s, m) => s + calcConta(m, pedidosDa(m), S.cfg).total, 0);
+  const periodo = de === ate ? fmtDia(de) : `${fmtDia(de)} a ${fmtDia(ate)}`;
+  const contasOrd = contas.sort((a, b) => (tsDate(b.fechadaEm) || 0) - (tsDate(a.fechadaEm) || 0));
+
+  $("#relConteudo").innerHTML = `<h2>${esc(S.cfg.nomeBar)} · ${periodo}</h2>
+    <div class="kpis">
+      <div class="kpi"><small>Faturamento</small><b>${brl(tot)}</b></div>
+      <div class="kpi"><small>Serviço (garçons)</small><b>${brl(taxa)}</b></div>
+      <div class="kpi"><small>Mesas fechadas</small><b>${contas.length}</b></div>
+      <div class="kpi"><small>Pessoas atendidas</small><b>${pessoas}</b></div>
+      <div class="kpi"><small>Ticket médio / pessoa</small><b>${brl(pessoas ? Math.round(tot / pessoas) : 0)}</b></div>
+      <div class="kpi"><small>Em aberto agora</small><b>${brl(emAberto)}</b><small>${ab.length} mesa(s)</small></div>
+    </div>
+    <h3>Por forma de pagamento</h3>
+    <div class="card"><table class="t"><tbody>${Object.entries(formas).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<tr><td>${esc(f)}</td><td class="r">${brl(v)}</td></tr>`).join("") || `<tr><td class="muted">Sem vendas</td></tr>`}</tbody></table></div>
+    <h3>Vendas por garçom (pedidos lançados)</h3>
+    <div class="card"><table class="t"><thead><tr><th>Garçom</th><th class="r">Pedidos</th><th class="r">Mesas</th><th class="r">Valor</th></tr></thead><tbody>
+      ${garL.map(g => `<tr><td>${esc(g.nome)}</td><td class="r">${g.pedidos}</td><td class="r">${g.mesas}</td><td class="r">${brl(g.valor)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sem pedidos</td></tr>`}</tbody></table>
+      ${canc ? `<div class="small muted" style="margin-top:6px">${canc} pedido(s) cancelado(s) no período.</div>` : ""}</div>
+    <h3>Itens mais vendidos</h3>
+    <div class="card"><table class="t"><thead><tr><th>Item</th><th class="r">Qtd</th><th class="r">Total</th></tr></thead><tbody>
+      ${topItens.map(i => `<tr><td>${esc(i.nome)}</td><td class="r">${i.qtd}</td><td class="r">${brl(i.total)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Sem vendas</td></tr>`}</tbody></table></div>
+    <h3>Contas fechadas</h3>
+    <div class="list">${contasOrd.map(c => `<button class="card" style="width:100%;text-align:left" data-conta="${c.id}"><div class="row between"><b>Mesa ${esc(c.mesaNumero)}</b><b>${brlR(c.total)}</b></div>
+      <div class="small muted">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · ${c.qtdPessoas || 0} pess.</div></button>`).join("") || `<div class="empty">Nenhuma conta fechada no período.</div>`}</div>
+    <p class="muted small" style="margin-top:14px">O dia de operação vai das 6h às 6h do dia seguinte. Faturamento considera só mesas já fechadas.</p>`;
+  $$("[data-conta]").forEach(b => b.onclick = () => verConta(contas.find(c => c.id === b.dataset.conta)));
+
+  let t = `*${S.cfg.nomeBar} — Relatório ${periodo}*\n\nFaturamento: ${brl(tot)}\nServiço: ${brl(taxa)}\nMesas: ${contas.length} · Pessoas: ${pessoas}\nTicket médio: ${brl(pessoas ? Math.round(tot / pessoas) : 0)}\n`;
+  t += `\n*Pagamentos*\n` + Object.entries(formas).map(([f, v]) => `${f}: ${brl(v)}`).join("\n");
+  t += `\n\n*Garçons*\n` + garL.map(g => `${g.nome}: ${brl(g.valor)} (${g.pedidos} pedidos)`).join("\n");
+  t += `\n\n*Mais vendidos*\n` + topItens.slice(0, 10).map(i => `${i.qtd}x ${i.nome}`).join("\n");
+  S.rel = { texto: t };
+}
+function verConta(c) {
+  abrirModal(`<div class="mh"><h2>Mesa ${esc(c.mesaNumero)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <div class="muted small">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · fechada por ${esc(c.fechadoPor || "")}</div>
+    <h3>Consumo</h3><table class="t"><tbody>${(c.itens || []).map(i => `<tr><td>${i.qtd}x ${esc(i.nome)}</td><td class="r">${brlR(i.total)}</td></tr>`).join("")}</tbody></table>
+    <h3>Pagamentos · ${DIVISOES[c.divisao] || ""}</h3><table class="t"><tbody>${(c.pessoas || []).map(p => `<tr><td>${esc(p.nome)}</td><td>${esc(p.forma)}</td><td class="r">${brlR(p.total)}</td></tr>`).join("")}</tbody></table>
+    <div class="kv"><span class="muted">Subtotal</span><span>${brlR(c.subtotal)}</span></div>
+    ${c.taxa ? `<div class="kv"><span class="muted">Serviço ${c.pct}%</span><span>${brlR(c.taxa)}</span></div>` : ""}
+    <div class="kv tot"><span>Total</span><span>${brlR(c.total)}</span></div>`);
+}
+</script>
 </body>
 </html>
