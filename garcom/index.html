@@ -135,6 +135,9 @@ table.t td.r,table.t th.r{text-align:right}
 .brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top>.row{flex:none;gap:6px}
 @media(max-width:420px){.top .icon-btn{width:34px;height:34px;font-size:.95rem}.brand .logo{width:32px;height:32px;font-size:17px}.exp-pill{padding:6px 9px;font-size:.75rem}}
+.thumb{width:46px;height:46px;border-radius:10px;object-fit:cover;background:var(--s3);flex:none;display:grid;place-items:center;color:var(--mu);font-size:1.2rem}
+.foto-edit{display:flex;gap:12px;align-items:center;margin-top:6px}
+.foto-edit .prev{width:96px;height:96px;border-radius:14px;object-fit:cover;background:var(--s2);border:1px dashed var(--bd);display:grid;place-items:center;color:var(--mu);font-size:2rem;flex:none}
 
 </style>
 </head>
@@ -209,7 +212,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.9";
+const VERSAO = "2.0";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -225,7 +228,7 @@ let db;
 try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = initializeFirestore(fbApp, {}); }
 
-const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas", publico: "bar_publico", delivery: "bar_delivery" };
+const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas", publico: "bar_publico", delivery: "bar_delivery", fotos: "bar_fotos" };
 const col = n => collection(db, n);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -591,6 +594,24 @@ function pendentesHtml(mesas) {
 
 /* ---------- Expediente ---------- */
 const expAberto = cfg => !!(cfg && cfg.expediente && cfg.expediente.aberto);
+
+/* ---------- Fotos dos produtos (comprimidas no aparelho e guardadas no Firestore) ---------- */
+function redimensionarFoto(arquivo, lado = 640) {
+  return new Promise((ok, erro) => {
+    const img = new Image(), url = URL.createObjectURL(arquivo);
+    img.onload = () => {
+      const esc = Math.min(1, lado / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      let q = 0.78, dado = c.toDataURL("image/jpeg", q);
+      while (dado.length > 160000 && q > 0.35) { q -= 0.08; dado = c.toDataURL("image/jpeg", q); }
+      ok(dado);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); erro(new Error("Não foi possível ler a imagem")); };
+    img.src = url;
+  });
+}
 
 
 instalarManifest({ nome: "Bar · Garçom", curto: "Garçom", emoji: "🍺" });
