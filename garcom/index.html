@@ -115,6 +115,15 @@ table.t td.r,table.t th.r{text-align:right}
 .alerta{background:#0c1f33;border:1px solid var(--info);border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .pago{color:var(--ok);font-weight:600;font-size:.78rem}
 
+.flag.chama{background:var(--er);color:#fff;font-size:.9rem;padding:2px 6px}
+.mesa.chamando{border-color:var(--er)!important;box-shadow:0 0 0 2px rgba(239,83,80,.45);animation:pul 1.2s ease-in-out infinite}
+@keyframes pul{50%{box-shadow:0 0 0 5px rgba(239,83,80,.12)}}
+.chamados{margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.chamado{display:flex;align-items:center;gap:10px;background:#3a1616;border:1px solid var(--er);border-radius:12px;padding:10px 12px}
+.chamado.conta{background:#0c1f33;border-color:var(--info)}
+.chamado b{font-family:'Space Grotesk';font-size:1.05rem}
+.chamado .small{color:var(--mu)}
+
 </style>
 </head>
 <body>
@@ -124,6 +133,7 @@ table.t td.r,table.t th.r{text-align:right}
 </header>
 
 <main>
+  <div id="chamadosBox"></div>
   <section id="t-login" class="tela center">
     <div class="hero-ico">🍺</div>
     <h2>App do Garçom</h2>
@@ -187,7 +197,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.2";
+const VERSAO = "1.3";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -203,7 +213,7 @@ let db;
 try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = initializeFirestore(fbApp, {}); }
 
-const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config" };
+const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas" };
 const col = n => collection(db, n);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -401,11 +411,83 @@ function itensHtml(itens, ocupantes = []) {
 }
 function mesaCard(m, extra = {}) {
   const st = m.status || "livre";
-  const flag = st === "fechamento" ? `<span class="flag conta">CONTA</span>` : (extra.prontos ? `<span class="flag pronto">${extra.prontos} PRONTO</span>` : "");
+  const flag = extra.chamado ? `<span class="flag chama">${extra.chamado.tipo === "conta" ? "🧾" : "🙋"}</span>`
+    : st === "fechamento" ? `<span class="flag conta">CONTA</span>` : (extra.prontos ? `<span class="flag pronto">${extra.prontos} PRONTO</span>` : "");
   const inf = st === "livre" ? "Livre" : `${(m.ocupantes || []).length} pess. · ${duracao(m.abertaEm)}`;
-  return `<button class="mesa ${st}" data-mesa="${m.id}">${flag}<span class="n">${esc(m.numero)}</span>
+  return `<button class="mesa ${st}${extra.chamado ? " chamando" : ""}" data-mesa="${m.id}">${flag}<span class="n">${esc(m.numero)}</span>
     <span class="nm">${esc(m.nome || (st === "livre" ? "" : (m.garcomNome || "")))}</span>
     ${st !== "livre" ? `<span class="tot">${brl(extra.total || 0)}</span>` : ""}<span class="inf">${inf}</span></button>`;
+}
+
+/* ---------- Chamados do cliente (QR Code da mesa) ---------- */
+const TIPOS_CHAMADO = { garcom: "🙋 chamando o garçom", conta: "🧾 pedindo a conta" };
+function chamadosHtml(lista, mesas, meuEmail) {
+  if (!lista.length) return "";
+  return `<div class="chamados">${lista.map(c => {
+    const m = mesas.find(x => x.id === c.id);
+    const minha = m && m.garcomEmail && m.garcomEmail === meuEmail;
+    return `<div class="chamado ${c.tipo === "conta" ? "conta" : ""}">
+      <div class="grow"><b>Mesa ${esc(c.mesaNumero)}</b> ${TIPOS_CHAMADO[c.tipo] || "chamando"}
+        <div class="small">${duracao(c.criadoEm)}${m && m.garcomNome ? " · " + esc(m.garcomNome) : (m && (m.status || "livre") === "livre" ? " · mesa livre" : "")}${minha ? " · sua mesa" : ""}</div></div>
+      <button class="btn sm" data-atender="${c.id}">Atender</button></div>`;
+  }).join("")}</div>`;
+}
+function ligarAtender(raiz, nome) {
+  $$("[data-atender]", raiz).forEach(b => b.onclick = () => salvar(deleteDoc(doc(db, C.chamados, b.dataset.atender)), "Chamado atendido"));
+}
+/* Observa os chamados e avisa (som + vibração) quando chega um novo */
+function ouvirChamados(onMuda, somLigado = () => true) {
+  let ant = null;
+  return onSnapshot(col(C.chamados), s => {
+    const lista = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (tsDate(a.criadoEm) || new Date()) - (tsDate(b.criadoEm) || new Date()));
+    const assin = c => c.id + "|" + c.tipo + "|" + (tsDate(c.criadoEm)?.getTime() || "");
+    if (ant) {
+      const novos = lista.filter(c => !ant.has(assin(c)) && tsDate(c.criadoEm));
+      if (novos.length) { if (somLigado()) beep(4); toast("🔔 " + novos.map(c => `Mesa ${c.mesaNumero} ${TIPOS_CHAMADO[c.tipo] || "chamando"}`).join(" · ")); }
+    }
+    ant = new Set(lista.map(assin));
+    onMuda(lista);
+  }, erroSnap);
+}
+
+/* ---------- Comanda online (o que o cliente vê pelo QR Code) ----------
+   Cada mesa tem um resumo público em bar_comandas/{token da mesa}.
+   Qualquer aparelho da equipe mantém esse resumo atualizado. */
+function resumoComanda(m, peds, cfg) {
+  if ((m.status || "livre") === "livre") return { numero: m.numero, nome: m.nome || "", status: "livre" };
+  const c = calcConta(m, peds, cfg), pg = m.pagamentos || {};
+  const ativos = peds.filter(p => ["recebido", "preparando", "pronto"].includes(p.status));
+  return {
+    numero: m.numero, nome: m.nome || "", status: m.status, sessao: m.sessao || "",
+    abertaEm: tsDate(m.abertaEm)?.getTime() || null,
+    divisao: c.divisao, pct: c.pct, subtotal: c.subtotal, taxa: c.taxa, total: c.total,
+    itens: c.itens.map(i => ({ nome: i.nome, qtd: i.qtd, total: i.total })),
+    pessoas: c.pessoas.length > 1 ? c.pessoas.map(p => ({ nome: p.nome, total: p.total, pago: !!pg[p.id] })) : [],
+    emPreparo: ativos.filter(p => p.status !== "pronto").reduce((n, p) => n + (p.itens || []).reduce((a, i) => a + i.qtd, 0), 0),
+    aCaminho: ativos.filter(p => p.status === "pronto").reduce((n, p) => n + (p.itens || []).reduce((a, i) => a + i.qtd, 0), 0)
+  };
+}
+const _pend = {};
+function sincronizarComandas(S) {
+  if (!S.comandasOk || !S.mesasOk || !S.pedidosOk || !S.cfgOk) return;
+  for (const m of S.mesas) {
+    if (!m.token) continue;
+    const peds = S.pedidos.filter(p => p.mesaId === m.id && p.sessao === m.sessao);
+    const dado = resumoComanda(m, peds, S.cfg), hash = JSON.stringify(dado);
+    const atual = S.comandas[m.token];
+    if ((atual && atual.hash === hash) || (!atual && dado.status === "livre") || _pend[m.token] === hash) continue;
+    _pend[m.token] = hash;
+    setTimeout(() => {   // pequena espera aleatória evita vários aparelhos gravando a mesma coisa
+      if (S.comandas[m.token]?.hash === hash) { delete _pend[m.token]; return; }
+      setDoc(doc(db, C.comandas, m.token), { ...dado, hash, atualizadoEm: serverTimestamp() })
+        .catch(e => console.warn("comanda", e)).finally(() => { if (_pend[m.token] === hash) delete _pend[m.token]; });
+    }, 300 + Math.random() * 1500);
+  }
+}
+function ouvirComandas(S, depois) {
+  return onSnapshot(col(C.comandas), s => {
+    S.comandas = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); S.comandasOk = true; depois();
+  }, e => console.warn("comandas", e));
 }
 
 
@@ -423,7 +505,7 @@ $("#btnSair").onclick = async () => { if (await confirmar("Sair da conta neste a
 onAuthStateChanged(auth, u => verificar(u));
 
 async function verificar(u) {
-  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.statusAnt = null;
+  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.statusAnt = null; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; if ($("#chamadosBox")) $("#chamadosBox").innerHTML = "";
   $("#btnSair").classList.toggle("hidden", !u);
   if (!u) return mostrar("login");
   const email = emailDe(u);
@@ -439,10 +521,10 @@ async function verificar(u) {
 function iniciar() {
   S.unsub.push(onSnapshot(doc(db, C.config, "geral"), d => {
     S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) };
-    $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Garçom"; render();
+    S.cfgOk = true; $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Garçom"; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.mesas), s => {
-    S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); render();
+    S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); S.mesasOk = true; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(query(col(C.pedidos), where("aberto", "==", true)), s => {
     const peds = s.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -451,7 +533,7 @@ function iniciar() {
       if (novos.length) { beep(3); toast("🔔 Pronto: " + [...new Set(novos.map(p => "Mesa " + p.mesaNumero))].join(", "), "ok"); }
     }
     S.statusAnt = Object.fromEntries(peds.map(p => [p.id, p.status]));
-    S.pedidos = peds; render();
+    S.pedidos = peds; S.pedidosOk = true; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.produtos), s => {
     S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.ativo !== false)
@@ -461,6 +543,8 @@ function iniciar() {
     S.clientes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.nome.localeCompare(b.nome));
     if (S.tela === "clientes") renderClientes();
   }, erroSnap));
+  S.comandas = {}; S.unsub.push(ouvirComandas(S, () => render()));
+  S.unsub.push(ouvirChamados(l => { S.chamados = l; render(); }));
   mostrar("mesas");
 }
 
@@ -482,10 +566,13 @@ setInterval(() => { if (["mesas", "mesa"].includes(S.tela)) render(); }, 60000);
 
 function render() {
   if (!S.perfil) return;
+  sincronizarComandas(S);
   if (S.tela === "mesas") renderMesas();
   else if (S.tela === "mesa") renderMesa();
   else if (S.tela === "prontos") renderProntos();
   else if (S.tela === "clientes") renderClientes();
+  const box = $("#chamadosBox");
+  box.innerHTML = chamadosHtml(S.chamados || [], S.mesas, S.perfil.email); ligarAtender(box);
   const n = S.pedidos.filter(p => p.status === "pronto").length;
   $("#dotProntos").textContent = n; $("#dotProntos").classList.toggle("hidden", !n);
 }
@@ -506,7 +593,7 @@ function renderMesas() {
   $("#mesasResumo").textContent = S.mesas.length ? `${abertas} ocupadas · ${S.mesas.length - abertas} livres` : "";
   $("#mesasGrid").innerHTML = lista.length ? lista.map(m => {
     const peds = pedidosDa(m);
-    return mesaCard(m, { total: calcConta(m, peds, S.cfg).total, prontos: peds.filter(p => p.status === "pronto").length });
+    return mesaCard(m, { total: calcConta(m, peds, S.cfg).total, prontos: peds.filter(p => p.status === "pronto").length, chamado: (S.chamados || []).find(c => c.id === m.id) });
   }).join("") : `<div class="empty" style="grid-column:1/-1">${S.mesas.length ? "Nenhuma mesa neste filtro." : "Nenhuma mesa cadastrada ainda.<br>A Central cadastra em <b>Mesas → Gerenciar mesas</b>."}</div>`;
   $$("#mesasGrid [data-mesa]").forEach(b => b.onclick = () => {
     const m = S.mesas.find(x => x.id === b.dataset.mesa);
