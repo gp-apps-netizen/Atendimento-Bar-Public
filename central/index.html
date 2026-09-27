@@ -125,6 +125,7 @@ table.t td.r,table.t th.r{text-align:right}
 .chamado .small{color:var(--mu)}
 
 .qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
+.chamado.link{background:#0f3a28;border-color:var(--ok)}
 
 .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
 .kcol h3{margin-top:0;display:flex;justify-content:space-between}
@@ -263,7 +264,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.4";
+const VERSAO = "1.6";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -442,7 +443,7 @@ function calcConta(mesa, pedidos, cfg = {}) {
   const taxa = pessoas.reduce((s, p) => s + p.taxa, 0);
   return { divisao, pct, subtotal, taxa, total: subtotal + taxa, pessoas, itens: Object.values(agg).sort((a, b) => b.total - a.total) };
 }
-const MESA_LIVRE = { token: null, whatsapp: null, status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
+const MESA_LIVRE = { token: null, whatsapp: null, linkPendente: false, linkEnviadoEm: null, status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
 /* Grava sem travar a tela (funciona offline: sincroniza quando a conexão voltar) */
 function salvar(promessa, msgOk) {
   if (msgOk) toast(msgOk, "ok");
@@ -520,11 +521,12 @@ function ouvirChamados(onMuda, somLigado = () => true) {
    Cada mesa tem um resumo público em bar_comandas/{token da mesa}.
    Qualquer aparelho da equipe mantém esse resumo atualizado. */
 function resumoComanda(m, peds, cfg) {
-  if ((m.status || "livre") === "livre") return { numero: m.numero, nome: m.nome || "", status: "livre" };
+  const bar = { nomeBar: cfg.nomeBar || "", whatsBar: cfg.whatsBar || "" };
+  if ((m.status || "livre") === "livre") return { numero: m.numero, nome: m.nome || "", status: "livre", ...bar };
   const c = calcConta(m, peds, cfg), pg = m.pagamentos || {};
   const ativos = peds.filter(p => ["recebido", "preparando", "pronto"].includes(p.status));
   return {
-    numero: m.numero, nome: m.nome || "", status: m.status, sessao: m.sessao || "",
+    numero: m.numero, nome: m.nome || "", status: m.status, sessao: m.sessao || "", ...bar,
     abertaEm: tsDate(m.abertaEm)?.getTime() || null,
     divisao: c.divisao, pct: c.pct, subtotal: c.subtotal, taxa: c.taxa, total: c.total,
     itens: c.itens.map(i => ({ nome: i.nome, qtd: i.qtd, total: i.total })),
@@ -587,24 +589,41 @@ async function garantirToken(m) {
   if (m.token) return m.token;
   const t = novoToken(); await updateDoc(doc(db, C.mesas, m.id), { token: t }); m.token = t; return t;
 }
-async function modalLinkMesa(m, nomeBar) {
+function textoLink(m, nomeBar, link) {
+  return `Olá! Esta é a comanda da ${nomeMesa(m)} no ${nomeBar}.\nPor aqui você acompanha o consumo, chama o garçom e pede a conta:\n${link}\n\n(O link vale enquanto a mesa estiver aberta.)`;
+}
+/* Central: abre o WhatsApp deste aparelho (o do bar) com a mensagem pronta e dá baixa no pedido de envio */
+async function enviarLinkWhats(m, nomeBar, fone) {
+  const f = foneWhats(fone || m.whatsapp);
+  if (!f) return toast("WhatsApp do cliente inválido", "erro");
+  try { await garantirToken(m); } catch (e) { return toast("Sem conexão para gerar o link", "erro"); }
+  window.open(`https://wa.me/${f}?text=${encodeURIComponent(textoLink(m, nomeBar, linkCliente(m)))}`, "_blank");
+  salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f, linkPendente: false, linkEnviadoEm: serverTimestamp() }));
+}
+/* modo: "garcom" (pede para a central enviar) ou "central" (envia pelo WhatsApp do bar) */
+async function modalLinkMesa(m, cfg, modo) {
   if ((m.status || "livre") === "livre") return toast("A mesa está livre", "erro");
   try { await garantirToken(m); } catch (e) { return toast("Sem conexão para gerar o link", "erro"); }
   const link = linkCliente(m);
   let svg = ""; try { await carregarQR(); svg = qrSvg(link); } catch (e) { svg = ""; }
+  const enviado = tsDate(m.linkEnviadoEm);
+  const status = m.linkPendente ? `<div class="alerta" style="margin-top:8px">⏳ Aguardando a central enviar o link pelo WhatsApp do bar.</div>`
+    : enviado ? `<p class="small" style="color:var(--ok);margin-top:8px">✓ Link enviado pelo WhatsApp às ${hora(enviado)}</p>` : "";
   const md = abrirModal(`<div class="mh"><h2>Link da ${esc(nomeMesa(m))}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <p class="muted small">Com este link o cliente acompanha a comanda, chama o garçom e pede a conta. <b>Ele expira quando a mesa for fechada.</b></p>
     ${svg ? `<div class="qr-tela">${svg}</div><p class="small muted" style="text-align:center">Mostre esta tela para o cliente escanear</p>` : `<div class="alerta" style="margin-top:12px">Não foi possível desenhar o QR Code agora — use o WhatsApp ou copie o link.</div>`}
     <label>WhatsApp do cliente</label>
     <div class="row"><input id="wz" inputmode="tel" placeholder="(12) 99999-9999" value="${esc(fmtFone(m.whatsapp || ""))}" class="grow">
-      <button class="btn ok" id="wzEnv">Enviar</button></div>
+      <button class="btn ok" id="wzEnv">${modo === "central" ? "Enviar" : "Pedir envio"}</button></div>
+    ${modo === "central" ? `<p class="small muted" style="margin-top:6px">Sai pelo WhatsApp deste aparelho${cfg.whatsBar ? ` — confira se é o do bar: <b>${esc(fmtFone(cfg.whatsBar))}</b>` : ""}.</p>`
+      : `<p class="small muted" style="margin-top:6px">A central recebe um aviso e envia pelo WhatsApp do bar.</p>`}
+    ${status}
     <button class="btn ghost block" id="cpLink" style="margin-top:10px">Copiar link</button>`);
   $("#wzEnv", md.el).onclick = () => {
     const f = foneWhats($("#wz", md.el).value);
     if (!f) return toast("Número inválido — use DDD + número", "erro");
-    if (soDigitos(m.whatsapp) !== f) salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f }));
-    const txt = `Olá! Esta é a comanda da ${nomeMesa(m)} no ${nomeBar}.\nPor aqui você acompanha o consumo, chama o garçom e pede a conta:\n${link}`;
-    window.open(`https://wa.me/${f}?text=${encodeURIComponent(txt)}`, "_blank");
+    if (modo === "central") { enviarLinkWhats(m, cfg.nomeBar, f); md.fechar(); }
+    else { salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f, linkPendente: true, linkEnviadoEm: null }), "Pedido de envio mandado para a central"); md.fechar(); }
   };
   $("#cpLink", md.el).onclick = () => copiar(link);
 }
@@ -613,6 +632,16 @@ function encerrarComanda(batch, m, c) {
   if (!m.token) return;
   batch.set(doc(db, C.comandas, m.token), { numero: m.numero, nome: m.nome || "", status: "encerrada", total: c ? c.total : 0, hash: "encerrada", atualizadoEm: serverTimestamp() });
   batch.delete(doc(db, C.chamados, m.id));
+}
+
+/* ---------- Central: links aguardando envio pelo WhatsApp do bar ---------- */
+function pendentesHtml(mesas) {
+  const l = mesas.filter(m => m.linkPendente && m.whatsapp && (m.status || "livre") !== "livre");
+  if (!l.length) return "";
+  return `<div class="chamados">${l.map(m => `<div class="chamado link">
+      <div class="grow"><b>📲 Enviar link · Mesa ${esc(m.numero)}</b><div class="small">para ${esc(fmtFone(m.whatsapp))}${m.garcomNome ? " · pedido por " + esc(m.garcomNome) : ""}</div></div>
+      <button class="btn ghost sm" data-dispensar="${m.id}" title="Dispensar">✕</button>
+      <button class="btn ok sm" data-enviarlink="${m.id}">Enviar</button></div>`).join("")}</div>`;
 }
 
 
@@ -630,7 +659,7 @@ $("#btnSair").onclick = async () => { if (await confirmar("Sair da conta neste a
 onAuthStateChanged(auth, u => verificar(u));
 
 async function verificar(u) {
-  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; $("#chamadosBox").innerHTML = "";
+  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null; S.pendAnt = null; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; $("#chamadosBox").innerHTML = "";
   ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u));
   if (!u) return mostrar("login");
   const email = emailDe(u);
@@ -648,7 +677,12 @@ function iniciar() {
     S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) };
     S.cfgOk = true; $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Central"; render();
   }, erroSnap));
-  S.unsub.push(onSnapshot(col(C.mesas), s => { S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); S.mesasOk = true; render(); }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.mesas), s => {
+    S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero);
+    const pend = new Set(S.mesas.filter(m => m.linkPendente && m.whatsapp).map(m => m.id));
+    if (S.pendAnt) { const novos = [...pend].filter(id => !S.pendAnt.has(id)); if (novos.length) { if (S.som) beep(3, false); toast("📲 Enviar link da " + novos.map(id => nomeMesa(S.mesas.find(m => m.id === id))).join(", ")); } }
+    S.pendAnt = pend; S.mesasOk = true; render();
+  }, erroSnap));
   S.unsub.push(onSnapshot(query(col(C.pedidos), where("aberto", "==", true)), s => {
     const peds = s.docs.map(d => ({ id: d.id, ...d.data() }));
     if (S.idsAnt) {
@@ -692,7 +726,9 @@ setInterval(() => { if (["pedidos", "mesas"].includes(S.tela)) render(); }, 3000
 function render() {
   if (!S.perfil) return;
   sincronizarComandas(S);
-  const box = $("#chamadosBox"); box.innerHTML = chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
+  const box = $("#chamadosBox"); box.innerHTML = pendentesHtml(S.mesas) + chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
+  $$("[data-enviarlink]", box).forEach(b => b.onclick = () => { const m = S.mesas.find(x => x.id === b.dataset.enviarlink); if (m) enviarLinkWhats(m, S.cfg.nomeBar); });
+  $$("[data-dispensar]", box).forEach(b => b.onclick = () => salvar(updateDoc(doc(db, C.mesas, b.dataset.dispensar), { linkPendente: false })));
   if (S.tela === "pedidos") renderPedidos();
   else if (S.tela === "mesas") renderMesas();
   else if (S.tela === "cardapio") renderCardapio();
@@ -835,7 +871,7 @@ function renderFechamento() {
   });
   $$("[data-desf]", box).forEach(b => b.onclick = () => { const n = { ...pg }; delete n[b.dataset.desf]; salvar(updateDoc(ref, { pagamentos: n })); });
   $("#fCop", box).onclick = () => copiar(contaTexto(S.cfg.nomeBar, m, c));
-  $("#fLink", box).onclick = () => modalLinkMesa(m, S.cfg.nomeBar);
+  $("#fLink", box).onclick = () => modalLinkMesa(m, S.cfg, "central");
   $("#fReab", box)?.addEventListener("click", () => salvar(updateDoc(ref, { status: "aberta", contaPedidaEm: null })));
   $("#fFechar", box).onclick = () => fecharMesa(m, peds, c);
 }
@@ -973,19 +1009,66 @@ function renderConfig() {
   $("#sub-config").innerHTML = `<div class="card">
       <label>Nome do bar</label><input id="cfNome" value="${esc(S.cfg.nomeBar)}">
       <label>Taxa de serviço (%)</label><input id="cfTaxa" inputmode="decimal" value="${esc(String(S.cfg.taxaServico).replace(".", ","))}">
+      <label>WhatsApp do bar (a central envia o link da comanda por ele)</label><input id="cfWhats" inputmode="tel" placeholder="(12) 99999-9999" value="${esc(fmtFone(S.cfg.whatsBar || ""))}">
+      <p class="small muted" style="margin-top:6px">Deixe a central aberta num aparelho com esse WhatsApp. O número também aparece para o cliente como contato do bar.</p>
       <button class="btn block" id="cfSalvar" style="margin-top:14px">Salvar</button></div>
     <h3>Links</h3>
     <div class="card"><div class="small muted">App do garçom (envie para a equipe)</div><div style="word-break:break-all;margin:4px 0 8px">${esc(urlG)}</div>
       <button class="btn ghost sm" id="cpG">Copiar link do garçom</button>
       <div class="small muted" style="margin-top:12px">Central</div><div style="word-break:break-all;margin:4px 0 8px">${esc(urlC)}</div>
       <button class="btn ghost sm" id="cpC">Copiar link da central</button></div>
+    ${S.perfil.dono ? `<h3>Limpar relatório</h3>
+    <div class="card">
+      <p class="small muted">Apaga as vendas (mesas fechadas e pedidos) do período escolhido. O cadastro — mesas, cardápio, equipe e clientes — e as mesas abertas <b>não</b> são afetados. <b>Não dá para desfazer.</b></p>
+      <div class="seg" id="lmModo" style="margin-top:10px"><button data-m="tudo" class="on">Tudo até hoje</button><button data-m="periodo">Escolher período</button></div>
+      <div class="row hidden" id="lmDatas" style="margin-top:4px"><div class="grow"><label>De</label><input type="date" id="lmDe"></div><div class="grow"><label>Até</label><input type="date" id="lmAte"></div></div>
+      <button class="btn danger block" id="lmLimpar" style="margin-top:12px">🗑️ Limpar relatório</button>
+    </div>` : ""}
     <p class="muted small" style="margin-top:14px">Versão ${VERSAO} · projeto atendimento-bar · dia de operação vira às 6h.</p>`;
+  if (S.perfil.dono) ligarLimpeza();
   $("#cfSalvar").onclick = () => {
-    const d = { nomeBar: $("#cfNome").value.trim() || "Bar", taxaServico: parseNum($("#cfTaxa").value) };
+    const wz = $("#cfWhats").value.trim(), whatsBar = wz ? foneWhats(wz) : "";
+    if (wz && !whatsBar) return toast("WhatsApp do bar inválido — use DDD + número", "erro");
+    const d = { nomeBar: $("#cfNome").value.trim() || "Bar", taxaServico: parseNum($("#cfTaxa").value), whatsBar };
     if (d.taxaServico < 0 || d.taxaServico > 30) return toast("Taxa entre 0 e 30%", "erro");
     salvar(setDoc(doc(db, C.config, "geral"), d, { merge: true }), "Configurações salvas");
   };
   $("#cpG").onclick = () => copiar(urlG); $("#cpC").onclick = () => copiar(urlC);
+}
+
+/* ---------- Limpar relatório (só o responsável) ---------- */
+function ligarLimpeza() {
+  let modo = "tudo";
+  $("#lmAte").value = diaOperacao();
+  $$("#lmModo button").forEach(b => b.onclick = () => {
+    modo = b.dataset.m; $$("#lmModo button").forEach(x => x.classList.toggle("on", x === b));
+    $("#lmDatas").classList.toggle("hidden", modo !== "periodo");
+  });
+  $("#lmLimpar").onclick = async () => {
+    const de = modo === "tudo" ? "0000-00-00" : $("#lmDe").value, ate = modo === "tudo" ? "9999-99-99" : $("#lmAte").value;
+    if (modo === "periodo" && (!de || !ate || de > ate)) return toast("Escolha um período válido", "erro");
+    const bt = $("#lmLimpar"); bt.disabled = true; bt.textContent = "Contando registros…";
+    try {
+      const [a, b] = await Promise.all([
+        getDocs(query(col(C.contas), where("dia", ">=", de), where("dia", "<=", ate))),
+        getDocs(query(col(C.pedidos), where("dia", ">=", de), where("dia", "<=", ate)))]);
+      const contas = a.docs, peds = b.docs.filter(d => d.data().aberto !== true);   // nunca apaga pedido de mesa aberta
+      let comandas = [];
+      if (modo === "tudo") comandas = (await getDocs(col(C.comandas))).docs.filter(d => d.data().status === "encerrada");
+      const total = contas.length + peds.length + comandas.length;
+      bt.disabled = false; bt.textContent = "🗑️ Limpar relatório";
+      if (!total) return toast("Não há vendas nesse período");
+      const periodo = modo === "tudo" ? "de todo o histórico" : (de === ate ? `do dia ${fmtDia(de)}` : `de ${fmtDia(de)} a ${fmtDia(ate)}`);
+      if (!await confirmar(`Apagar ${contas.length} mesa(s) fechada(s) e ${peds.length} pedido(s) ${periodo}? Isso não pode ser desfeito.`, "Apagar", true)) return;
+      bt.disabled = true; bt.textContent = "Apagando…";
+      const todos = [...contas, ...peds, ...comandas];
+      for (let i = 0; i < todos.length; i += 400) {
+        const lote = writeBatch(db); todos.slice(i, i + 400).forEach(d => lote.delete(d.ref)); await lote.commit();
+      }
+      S.rel = null; toast(`Relatório limpo: ${contas.length} mesa(s) e ${peds.length} pedido(s) apagados`, "ok");
+    } catch (e) { console.error(e); toast("Falha ao limpar: " + (e.code || e.message), "erro"); }
+    bt.disabled = false; bt.textContent = "🗑️ Limpar relatório";
+  };
 }
 
 /* ---------- Relatório ---------- */
