@@ -125,6 +125,7 @@ table.t td.r,table.t th.r{text-align:right}
 .chamado .small{color:var(--mu)}
 
 .qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
+.chamado.link{background:#0f3a28;border-color:var(--ok)}
 
 </style>
 </head>
@@ -199,7 +200,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.4";
+const VERSAO = "1.6";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -378,7 +379,7 @@ function calcConta(mesa, pedidos, cfg = {}) {
   const taxa = pessoas.reduce((s, p) => s + p.taxa, 0);
   return { divisao, pct, subtotal, taxa, total: subtotal + taxa, pessoas, itens: Object.values(agg).sort((a, b) => b.total - a.total) };
 }
-const MESA_LIVRE = { token: null, whatsapp: null, status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
+const MESA_LIVRE = { token: null, whatsapp: null, linkPendente: false, linkEnviadoEm: null, status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
 /* Grava sem travar a tela (funciona offline: sincroniza quando a conexão voltar) */
 function salvar(promessa, msgOk) {
   if (msgOk) toast(msgOk, "ok");
@@ -456,11 +457,12 @@ function ouvirChamados(onMuda, somLigado = () => true) {
    Cada mesa tem um resumo público em bar_comandas/{token da mesa}.
    Qualquer aparelho da equipe mantém esse resumo atualizado. */
 function resumoComanda(m, peds, cfg) {
-  if ((m.status || "livre") === "livre") return { numero: m.numero, nome: m.nome || "", status: "livre" };
+  const bar = { nomeBar: cfg.nomeBar || "", whatsBar: cfg.whatsBar || "" };
+  if ((m.status || "livre") === "livre") return { numero: m.numero, nome: m.nome || "", status: "livre", ...bar };
   const c = calcConta(m, peds, cfg), pg = m.pagamentos || {};
   const ativos = peds.filter(p => ["recebido", "preparando", "pronto"].includes(p.status));
   return {
-    numero: m.numero, nome: m.nome || "", status: m.status, sessao: m.sessao || "",
+    numero: m.numero, nome: m.nome || "", status: m.status, sessao: m.sessao || "", ...bar,
     abertaEm: tsDate(m.abertaEm)?.getTime() || null,
     divisao: c.divisao, pct: c.pct, subtotal: c.subtotal, taxa: c.taxa, total: c.total,
     itens: c.itens.map(i => ({ nome: i.nome, qtd: i.qtd, total: i.total })),
@@ -523,24 +525,41 @@ async function garantirToken(m) {
   if (m.token) return m.token;
   const t = novoToken(); await updateDoc(doc(db, C.mesas, m.id), { token: t }); m.token = t; return t;
 }
-async function modalLinkMesa(m, nomeBar) {
+function textoLink(m, nomeBar, link) {
+  return `Olá! Esta é a comanda da ${nomeMesa(m)} no ${nomeBar}.\nPor aqui você acompanha o consumo, chama o garçom e pede a conta:\n${link}\n\n(O link vale enquanto a mesa estiver aberta.)`;
+}
+/* Central: abre o WhatsApp deste aparelho (o do bar) com a mensagem pronta e dá baixa no pedido de envio */
+async function enviarLinkWhats(m, nomeBar, fone) {
+  const f = foneWhats(fone || m.whatsapp);
+  if (!f) return toast("WhatsApp do cliente inválido", "erro");
+  try { await garantirToken(m); } catch (e) { return toast("Sem conexão para gerar o link", "erro"); }
+  window.open(`https://wa.me/${f}?text=${encodeURIComponent(textoLink(m, nomeBar, linkCliente(m)))}`, "_blank");
+  salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f, linkPendente: false, linkEnviadoEm: serverTimestamp() }));
+}
+/* modo: "garcom" (pede para a central enviar) ou "central" (envia pelo WhatsApp do bar) */
+async function modalLinkMesa(m, cfg, modo) {
   if ((m.status || "livre") === "livre") return toast("A mesa está livre", "erro");
   try { await garantirToken(m); } catch (e) { return toast("Sem conexão para gerar o link", "erro"); }
   const link = linkCliente(m);
   let svg = ""; try { await carregarQR(); svg = qrSvg(link); } catch (e) { svg = ""; }
+  const enviado = tsDate(m.linkEnviadoEm);
+  const status = m.linkPendente ? `<div class="alerta" style="margin-top:8px">⏳ Aguardando a central enviar o link pelo WhatsApp do bar.</div>`
+    : enviado ? `<p class="small" style="color:var(--ok);margin-top:8px">✓ Link enviado pelo WhatsApp às ${hora(enviado)}</p>` : "";
   const md = abrirModal(`<div class="mh"><h2>Link da ${esc(nomeMesa(m))}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <p class="muted small">Com este link o cliente acompanha a comanda, chama o garçom e pede a conta. <b>Ele expira quando a mesa for fechada.</b></p>
     ${svg ? `<div class="qr-tela">${svg}</div><p class="small muted" style="text-align:center">Mostre esta tela para o cliente escanear</p>` : `<div class="alerta" style="margin-top:12px">Não foi possível desenhar o QR Code agora — use o WhatsApp ou copie o link.</div>`}
     <label>WhatsApp do cliente</label>
     <div class="row"><input id="wz" inputmode="tel" placeholder="(12) 99999-9999" value="${esc(fmtFone(m.whatsapp || ""))}" class="grow">
-      <button class="btn ok" id="wzEnv">Enviar</button></div>
+      <button class="btn ok" id="wzEnv">${modo === "central" ? "Enviar" : "Pedir envio"}</button></div>
+    ${modo === "central" ? `<p class="small muted" style="margin-top:6px">Sai pelo WhatsApp deste aparelho${cfg.whatsBar ? ` — confira se é o do bar: <b>${esc(fmtFone(cfg.whatsBar))}</b>` : ""}.</p>`
+      : `<p class="small muted" style="margin-top:6px">A central recebe um aviso e envia pelo WhatsApp do bar.</p>`}
+    ${status}
     <button class="btn ghost block" id="cpLink" style="margin-top:10px">Copiar link</button>`);
   $("#wzEnv", md.el).onclick = () => {
     const f = foneWhats($("#wz", md.el).value);
     if (!f) return toast("Número inválido — use DDD + número", "erro");
-    if (soDigitos(m.whatsapp) !== f) salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f }));
-    const txt = `Olá! Esta é a comanda da ${nomeMesa(m)} no ${nomeBar}.\nPor aqui você acompanha o consumo, chama o garçom e pede a conta:\n${link}`;
-    window.open(`https://wa.me/${f}?text=${encodeURIComponent(txt)}`, "_blank");
+    if (modo === "central") { enviarLinkWhats(m, cfg.nomeBar, f); md.fechar(); }
+    else { salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f, linkPendente: true, linkEnviadoEm: null }), "Pedido de envio mandado para a central"); md.fechar(); }
   };
   $("#cpLink", md.el).onclick = () => copiar(link);
 }
@@ -549,6 +568,16 @@ function encerrarComanda(batch, m, c) {
   if (!m.token) return;
   batch.set(doc(db, C.comandas, m.token), { numero: m.numero, nome: m.nome || "", status: "encerrada", total: c ? c.total : 0, hash: "encerrada", atualizadoEm: serverTimestamp() });
   batch.delete(doc(db, C.chamados, m.id));
+}
+
+/* ---------- Central: links aguardando envio pelo WhatsApp do bar ---------- */
+function pendentesHtml(mesas) {
+  const l = mesas.filter(m => m.linkPendente && m.whatsapp && (m.status || "livre") !== "livre");
+  if (!l.length) return "";
+  return `<div class="chamados">${l.map(m => `<div class="chamado link">
+      <div class="grow"><b>📲 Enviar link · Mesa ${esc(m.numero)}</b><div class="small">para ${esc(fmtFone(m.whatsapp))}${m.garcomNome ? " · pedido por " + esc(m.garcomNome) : ""}</div></div>
+      <button class="btn ghost sm" data-dispensar="${m.id}" title="Dispensar">✕</button>
+      <button class="btn ok sm" data-enviarlink="${m.id}">Enviar</button></div>`).join("")}</div>`;
 }
 
 
@@ -676,7 +705,7 @@ function abrirMesaModal(m) {
     <div class="qty"><button id="menos">−</button><span id="qt"></span><button class="plus" id="mais">+</button></div>
     <label>Nomes (opcional) — digite ou escolha um cliente cadastrado</label>
     <div id="nomes" class="list"></div>${dlClientes()}
-    <label>WhatsApp do cliente (opcional) — para enviar o link da comanda</label>
+    <label>WhatsApp do cliente (opcional) — a central envia o link da comanda</label>
     <input id="wzAbrir" inputmode="tel" placeholder="(12) 99999-9999">
     <button class="btn block" id="ok" style="margin-top:16px">Abrir mesa</button>`);
   const desenhar = () => {
@@ -697,10 +726,10 @@ function abrirMesaModal(m) {
       await runTransaction(db, async tx => {
         const ref = doc(db, C.mesas, m.id); const d = await tx.get(ref);
         if ((d.data()?.status || "livre") !== "livre") throw new Error("ocupada");
-        tx.update(ref, { ...MESA_LIVRE, token, whatsapp: whatsapp || null, status: "aberta", sessao: rid(), ocupantes, abertaEm: serverTimestamp(), garcomEmail: S.perfil.email, garcomNome: S.perfil.nome });
+        tx.update(ref, { ...MESA_LIVRE, token, whatsapp: whatsapp || null, linkPendente: !!whatsapp, status: "aberta", sessao: rid(), ocupantes, abertaEm: serverTimestamp(), garcomEmail: S.perfil.email, garcomNome: S.perfil.nome });
       });
       md.fechar(); S.mesaId = m.id; S.aguardar = m.id; mostrar("mesa");
-      if (whatsapp) modalLinkMesa({ ...m, status: "aberta", token, whatsapp }, S.cfg.nomeBar);
+      if (whatsapp) toast("📲 A central vai enviar o link para o WhatsApp do cliente", "ok");
     } catch (e) {
       btn.disabled = false; btn.textContent = "Abrir mesa";
       toast(e.message === "ocupada" ? "Outra pessoa acabou de abrir esta mesa" : "Sem conexão para abrir a mesa. Tente de novo.", "erro");
@@ -748,7 +777,7 @@ function renderMesa() {
 
   $("#voltar").onclick = () => mostrar("mesas");
   $("#novoPed").onclick = () => novoPedido(m);
-  $("#linkMesa").onclick = () => modalLinkMesa(m, S.cfg.nomeBar);
+  $("#linkMesa").onclick = () => modalLinkMesa(m, S.cfg, "garcom");
   $("#addOc").onclick = () => editarOcupante(m, null);
   $$("[data-oc]").forEach(b => b.onclick = () => editarOcupante(m, b.dataset.oc));
   $$("#segDiv button").forEach(b => b.onclick = () => salvar(updateDoc(doc(db, C.mesas, m.id), { divisao: b.dataset.d })));
