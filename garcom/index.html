@@ -127,6 +127,14 @@ table.t td.r,table.t th.r{text-align:right}
 .qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
 .chamado.link{background:#0f3a28;border-color:var(--ok)}
 .chamado.dlv{background:#2b2144;border-color:var(--prep)}
+.exp-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 11px;font-size:.8rem;font-weight:600;border:1px solid var(--bd);background:var(--s2);white-space:nowrap}
+.exp-pill.on{background:#0f3a28;border-color:var(--ok);color:#c9f5df}.exp-pill.off{background:#3a1616;border-color:#6b2a2a;color:#ffd0cf}
+.exp-faixa{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#3a1616;border:1px solid #6b2a2a;color:#ffd0cf;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:.9rem}
+.top{gap:8px}
+.brand{min-width:0;flex:1}.brand>div{min-width:0}
+.brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top>.row{flex:none;gap:6px}
+@media(max-width:420px){.top .icon-btn{width:34px;height:34px;font-size:.95rem}.brand .logo{width:32px;height:32px;font-size:17px}.exp-pill{padding:6px 9px;font-size:.75rem}}
 
 </style>
 </head>
@@ -201,7 +209,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.7";
+const VERSAO = "1.9";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -581,6 +589,9 @@ function pendentesHtml(mesas) {
       <button class="btn ok sm" data-enviarlink="${m.id}">Enviar</button></div>`).join("")}</div>`;
 }
 
+/* ---------- Expediente ---------- */
+const expAberto = cfg => !!(cfg && cfg.expediente && cfg.expediente.aberto);
+
 
 instalarManifest({ nome: "Bar · Garçom", curto: "Garçom", emoji: "🍺" });
 
@@ -663,7 +674,7 @@ function render() {
   else if (S.tela === "prontos") renderProntos();
   else if (S.tela === "clientes") renderClientes();
   const box = $("#chamadosBox");
-  box.innerHTML = chamadosHtml(S.chamados || [], S.mesas, S.perfil.email); ligarAtender(box);
+  box.innerHTML = (S.cfgOk && !expAberto(S.cfg) ? `<div class="exp-faixa"><span>🔴 <b>Expediente fechado</b> — não é possível abrir mesas nem lançar pedidos.</span></div>` : "") + chamadosHtml(S.chamados || [], S.mesas, S.perfil.email); ligarAtender(box);
   const n = S.pedidos.filter(p => p.status === "pronto").length;
   $("#dotProntos").textContent = n; $("#dotProntos").classList.toggle("hidden", !n);
 }
@@ -700,6 +711,7 @@ function ocupanteDe(nome, i) {
 }
 
 function abrirMesaModal(m) {
+  if (!expAberto(S.cfg)) return toast("🔴 Expediente fechado — não é possível abrir mesa", "erro");
   let qt = Math.min(Math.max(m.lugares || 2, 1), 12), nomes = [];
   const md = abrirModal(`<div class="mh"><h2>Abrir ${esc(nomeMesa(m))}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <label>Quantas pessoas?</label>
@@ -733,7 +745,7 @@ function abrirMesaModal(m) {
       if (whatsapp) toast("📲 A central vai enviar o link para o WhatsApp do cliente", "ok");
     } catch (e) {
       btn.disabled = false; btn.textContent = "Abrir mesa";
-      toast(e.message === "ocupada" ? "Outra pessoa acabou de abrir esta mesa" : "Sem conexão para abrir a mesa. Tente de novo.", "erro");
+      toast(e.message === "ocupada" ? "Outra pessoa acabou de abrir esta mesa" : e.code === "permission-denied" ? "🔴 Expediente fechado — não é possível abrir mesa" : "Sem conexão para abrir a mesa. Tente de novo.", "erro");
     }
   };
 }
@@ -755,7 +767,7 @@ function renderMesa() {
     ${m.status === "fechamento" ? `<div class="alerta" style="margin-top:12px">Conta pedida — aguardando o caixa. <button class="btn ghost sm" id="reabrir" style="margin-left:6px">Reabrir</button></div>` : ""}
     <h3>Ocupantes</h3>
     <div class="chips">${(m.ocupantes || []).map(o => `<button class="chip" data-oc="${o.id}">${esc(o.nome)}${pg[o.id] ? " ✓" : ""}</button>`).join("")}<button class="chip add" id="addOc">＋ Pessoa</button></div>
-    <div class="row" style="margin:16px 0 4px"><button class="btn grow" id="novoPed" style="padding:14px">＋ Novo pedido</button>
+    <div class="row" style="margin:16px 0 4px"><button class="btn grow" id="novoPed" style="padding:14px" ${expAberto(S.cfg) ? "" : "disabled"}>${expAberto(S.cfg) ? "＋ Novo pedido" : "🔴 Expediente fechado"}</button>
       <button class="btn ghost" id="linkMesa" style="padding:14px" title="Link e QR Code da mesa">📱 Link</button></div>
     <h3>Pedidos (${validos.length})</h3>
     <div class="list">${peds.length ? peds.slice().reverse().map(p => pedidoCard(p, m)).join("") : `<div class="empty">Nenhum pedido ainda.</div>`}</div>
@@ -841,6 +853,7 @@ function editarOcupante(m, id) {
 
 /* ---------- Novo pedido ---------- */
 function novoPedido(mesa) {
+  if (!expAberto(S.cfg)) return toast("🔴 Expediente fechado — não é possível lançar pedidos", "erro");
   let cart = [], cat = "Todas", busca = "", etapa = "cardapio";
   const md = abrirModal(`<div class="sheet-h"><div class="mh"><h2>Pedido · ${esc(nomeMesa(mesa))}</h2><button class="icon-btn" data-fechar>✕</button></div>
       <div id="topo"></div></div>
@@ -913,6 +926,7 @@ function novoPedido(mesa) {
   function enviar() {
     const m = S.mesas.find(x => x.id === mesa.id) || mesa;
     if ((m.status || "livre") === "livre") { toast("Esta mesa foi fechada", "erro"); return md.fechar(); }
+    if (!expAberto(S.cfg)) { toast("🔴 O expediente foi encerrado — pedido não enviado", "erro"); return md.fechar(); }
     const b = writeBatch(db);
     b.set(doc(col(C.pedidos)), {
       mesaId: m.id, mesaNumero: m.numero, mesaNome: m.nome || "", sessao: m.sessao,
