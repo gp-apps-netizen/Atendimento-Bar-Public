@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111214">
+<title>Minha mesa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#111214;--s1:#1a1b1e;--s2:#222327;--bd:#303137;--tx:#ececec;--mu:#9b9ca3;--ac:#f5a524;--acx:#1b1300;--ok:#3ecf8e;--er:#ef5350;--info:#4aa3ff}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;min-height:100vh}
+body{display:flex;flex-direction:column;align-items:center;padding:24px 16px calc(28px + env(safe-area-inset-bottom));text-align:center}
+.w{width:100%;max-width:380px}
+.logo{width:64px;height:64px;border-radius:18px;background:var(--ac);display:grid;place-items:center;font-size:34px;margin:0 auto 16px}
+.mesa{font-family:'Space Grotesk',sans-serif;font-size:2.6rem;font-weight:700;line-height:1}
+.sub{color:var(--mu);margin:8px 0 28px}
+button{font:inherit;border:0;cursor:pointer;width:100%;border-radius:18px;padding:22px 16px;font-size:1.2rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;transition:transform .1s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.45}
+button .i{font-size:1.7rem}
+#bGarcom{background:var(--ac);color:var(--acx)}
+#bConta{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}
+#msg{min-height:84px;margin-top:10px;border-radius:14px;padding:14px;display:none;line-height:1.45}
+#msg.ok{display:block;background:#0f3a28;color:#c9f5df}
+#msg.erro{display:block;background:#3a1616;color:#ffd0cf}
+#msg b{display:block;font-size:1.05rem;margin-bottom:2px;color:#fff}
+.rod{color:var(--mu);font-size:.78rem;margin-top:22px}
+.acoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acoes button{flex-direction:column;gap:6px;padding:18px 10px;font-size:1rem;margin:0}
+.com{background:var(--s1);border:1px solid var(--bd);border-radius:18px;padding:16px;margin-top:18px;text-align:left}
+.com h2{font-family:'Space Grotesk',sans-serif;font-size:1.05rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.com h2 small{font-family:'IBM Plex Sans';font-weight:400;color:var(--mu);font-size:.75rem}
+.lin{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:.95rem}
+.lin:last-child{border-bottom:0}
+.lin .q{color:var(--ac);font-weight:600;margin-right:4px}
+.lin .v{white-space:nowrap}
+.tot{display:flex;justify-content:space-between;padding:4px 0;color:var(--mu);font-size:.92rem}
+.tot.g{color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:1.35rem;font-weight:700;border-top:1px solid var(--bd);margin-top:6px;padding-top:10px}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:99px;margin:0 6px 10px 0}
+.tag.p{background:#2b2144;color:#b58cff}.tag.c{background:#0f3a28;color:var(--ok)}.tag.f{background:#0c1f33;color:var(--info)}
+.pago{color:var(--ok);font-size:.78rem;margin-left:6px}
+.vazio{color:var(--mu);text-align:center;padding:14px 4px;font-size:.92rem}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="logo">🍺</div>
+  <div class="mesa" id="mesa">Mesa</div>
+  <p class="sub" id="sub">Como podemos ajudar?</p>
+  <div class="acoes">
+    <button id="bGarcom"><span class="i">🙋</span>Chamar o garçom</button>
+    <button id="bConta"><span class="i">🧾</span>Pedir a conta</button>
+  </div>
+  <div id="msg"></div>
+  <div class="com" id="com"><h2>Comanda da mesa</h2><div class="vazio">Carregando…</div></div>
+  <p class="rod">A comanda atualiza sozinha a cada pedido. Os valores finais são confirmados no fechamento.</p>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAeSmdHNn7LTk60DKO3DCGOTvPaNHdzMF4",
+  authDomain: "atendimento-bar.firebaseapp.com",
+  projectId: "atendimento-bar",
+  storageBucket: "atendimento-bar.firebasestorage.app",
+  messagingSenderId: "92179047707",
+  appId: "1:92179047707:web:08d82fc86c7da2f0215fbe",
+  measurementId: "G-NT0H4GQ3V7"
+};
+
+const $ = s => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+const mesaId = q.get("m"), numero = parseInt(q.get("n")), token = q.get("t");
+const ESPERA = 45; // segundos entre chamados do mesmo celular
+
+function msg(tipo, titulo, texto) { const m = $("#msg"); m.className = tipo; m.innerHTML = `<b>${titulo}</b>${texto}`; }
+
+if (!mesaId || !token || !(numero > 0)) {
+  $("#mesa").textContent = "QR Code inválido";
+  $("#sub").textContent = "Não foi possível identificar a mesa.";
+  $("#bGarcom").disabled = $("#bConta").disabled = true;
+  msg("erro", "Chame o garçom pessoalmente", "Este código não está completo. Avise a equipe para trocar o QR Code da mesa.");
+} else {
+  $("#mesa").textContent = "Mesa " + numero;
+  document.title = "Mesa " + numero;
+  const db = getFirestore(initializeApp(firebaseConfig));
+  const chave = "chamado_" + mesaId;
+  const ultimo = () => { try { return Number(localStorage.getItem(chave)) || 0; } catch (e) { return 0; } };
+  let timer;
+  function travar() {
+    const falta = Math.ceil(ESPERA - (Date.now() - ultimo()) / 1000);
+    const bloqueado = falta > 0;
+    $("#bGarcom").disabled = $("#bConta").disabled = bloqueado;
+    $("#sub").textContent = bloqueado ? `Pode chamar de novo em ${falta}s` : "Como podemos ajudar?";
+    clearTimeout(timer); if (bloqueado) timer = setTimeout(travar, 1000);
+  }
+  async function chamar(tipo) {
+    $("#bGarcom").disabled = $("#bConta").disabled = true;
+    try {
+      await setDoc(doc(db, "bar_chamados", mesaId), { tipo, token, mesaNumero: numero, criadoEm: serverTimestamp() });
+      try { localStorage.setItem(chave, String(Date.now())); } catch (e) { }
+      if (navigator.vibrate) navigator.vibrate(120);
+      msg("ok", tipo === "conta" ? "✓ Conta solicitada" : "✓ Garçom avisado",
+        tipo === "conta" ? "Já já trazemos a sua conta." : "Alguém da equipe já está a caminho da sua mesa.");
+      travar();
+    } catch (e) {
+      console.error(e);
+      msg("erro", "Não conseguimos avisar", e.code === "permission-denied"
+        ? "Este QR Code não é mais válido. Chame o garçom pessoalmente e avise para trocar o código."
+        : "Verifique a internet do celular e tente de novo.");
+      $("#bGarcom").disabled = $("#bConta").disabled = false;
+    }
+  }
+  const brl = c => ((c || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const DIV = { itens: "por consumo", igual: "igual entre todos", unica: "conta única" };
+  function comanda(d) {
+    const box = $("#com");
+    if (!d || d.status === "livre" || !(d.itens || []).length) {
+      box.innerHTML = `<h2>Comanda da mesa</h2><div class="vazio">${d && d.status !== "livre" ? "Nenhum pedido lançado ainda." : "Nenhum consumo nesta mesa no momento."}</div>`;
+      return;
+    }
+    const hr = d.atualizadoEm?.toDate ? d.atualizadoEm.toDate().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+    box.innerHTML = `<h2>Comanda da mesa <small>${hr ? "atualizada " + hr : ""}</small></h2>
+      <div>${d.status === "fechamento" ? `<span class="tag f">Conta solicitada</span>` : ""}${d.emPreparo ? `<span class="tag p">${d.emPreparo} item(ns) em preparo</span>` : ""}${d.aCaminho ? `<span class="tag c">${d.aCaminho} item(ns) a caminho</span>` : ""}</div>
+      ${d.itens.map(i => `<div class="lin"><span><span class="q">${i.qtd}x</span>${esc(i.nome)}</span><span class="v">${brl(i.total)}</span></div>`).join("")}
+      <div style="margin-top:10px">
+        <div class="tot"><span>Subtotal</span><span>${brl(d.subtotal)}</span></div>
+        ${d.taxa ? `<div class="tot"><span>Serviço (${d.pct}%)</span><span>${brl(d.taxa)}</span></div>` : ""}
+        <div class="tot g"><span>Total</span><span>${brl(d.total)}</span></div>
+      </div>
+      ${(d.pessoas || []).length ? `<h2 style="margin-top:16px">Divisão <small>${DIV[d.divisao] || ""}</small></h2>
+        ${d.pessoas.map(p => `<div class="lin"><span>${esc(p.nome)}${p.pago ? `<span class="pago">✓ pago</span>` : ""}</span><span class="v">${brl(p.total)}</span></div>`).join("")}` : ""}`;
+  }
+  onSnapshot(doc(db, "bar_comandas", token), s => comanda(s.exists() ? s.data() : null),
+    e => { console.warn(e); $("#com").innerHTML = `<h2>Comanda da mesa</h2><div class="vazio">Não foi possível carregar a comanda.</div>`; });
+
+  $("#bGarcom").onclick = () => chamar("garcom");
+  $("#bConta").onclick = () => chamar("conta");
+  travar();
+}
+</script>
+</body>
+</html>
