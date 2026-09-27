@@ -124,6 +124,8 @@ table.t td.r,table.t th.r{text-align:right}
 .chamado b{font-family:'Space Grotesk';font-size:1.05rem}
 .chamado .small{color:var(--mu)}
 
+.qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
+
 .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
 .kcol h3{margin-top:0;display:flex;justify-content:space-between}
 .pedido.novo{animation:pisca 1s ease-in-out 4}
@@ -142,21 +144,7 @@ table.t td.r,table.t th.r{text-align:right}
 .prodrow .pn{flex:1;min-width:0;text-align:left}.prodrow.off .pn{opacity:.45}
 .pag{display:flex;gap:6px;align-items:center;margin-top:6px}
 .pag select{padding:7px 8px;width:auto;font-size:.85rem}
-#qrSheet{position:fixed;inset:0;z-index:80;background:#fff;color:#111;overflow:auto}
-.qr-bar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;gap:10px}
-.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;padding:14px;max-width:900px;margin:0 auto}
-.qr-card{border:2px dashed #bbb;border-radius:14px;padding:16px;text-align:center;break-inside:avoid;page-break-inside:avoid}
-.qr-bar-nome{font-size:.85rem;color:#666;text-transform:uppercase;letter-spacing:.08em}
-.qr-mesa{font-family:'Space Grotesk',sans-serif;font-size:2.1rem;font-weight:700;margin:2px 0}
-.qr-sub{color:#666;font-size:.9rem}
-.qr-img{width:170px;height:170px;margin:12px auto}.qr-img svg{width:100%;height:100%}
-.qr-txt{font-size:.85rem;color:#333;line-height:1.35}
-body.qr-aberto{overflow:hidden}
 @media print{
-  body.qr-aberto > *:not(#qrSheet){display:none!important}
-  body.qr-aberto #qrSheet{position:static;overflow:visible}
-  body.qr-aberto{padding:0;overflow:visible}
-  .qr-grid{grid-template-columns:repeat(2,1fr);max-width:none}
 
   body{background:#fff;color:#000;padding:0}
   .top,.tabs,.no-print,#toast{display:none!important}
@@ -275,7 +263,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.3";
+const VERSAO = "1.4";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -454,7 +442,7 @@ function calcConta(mesa, pedidos, cfg = {}) {
   const taxa = pessoas.reduce((s, p) => s + p.taxa, 0);
   return { divisao, pct, subtotal, taxa, total: subtotal + taxa, pessoas, itens: Object.values(agg).sort((a, b) => b.total - a.total) };
 }
-const MESA_LIVRE = { status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
+const MESA_LIVRE = { token: null, whatsapp: null, status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
 /* Grava sem travar a tela (funciona offline: sincroniza quando a conexão voltar) */
 function salvar(promessa, msgOk) {
   if (msgOk) toast(msgOk, "ok");
@@ -556,7 +544,8 @@ function sincronizarComandas(S) {
     if ((atual && atual.hash === hash) || (!atual && dado.status === "livre") || _pend[m.token] === hash) continue;
     _pend[m.token] = hash;
     setTimeout(() => {   // pequena espera aleatória evita vários aparelhos gravando a mesma coisa
-      if (S.comandas[m.token]?.hash === hash) { delete _pend[m.token]; return; }
+      const agora = S.mesas.find(x => x.id === m.id);
+      if (!agora || agora.token !== m.token || S.comandas[m.token]?.hash === hash) { delete _pend[m.token]; return; }
       setDoc(doc(db, C.comandas, m.token), { ...dado, hash, atualizadoEm: serverTimestamp() })
         .catch(e => console.warn("comanda", e)).finally(() => { if (_pend[m.token] === hash) delete _pend[m.token]; });
     }, 300 + Math.random() * 1500);
@@ -566,6 +555,64 @@ function ouvirComandas(S, depois) {
   return onSnapshot(col(C.comandas), s => {
     S.comandas = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); S.comandasOk = true; depois();
   }, e => console.warn("comandas", e));
+}
+
+/* ---------- Link / QR Code da mesa (um por abertura; expira ao fechar) ---------- */
+function novoToken() { return rid() + rid() + rid(); }
+function carregarQR() {
+  if (window.qrcode) return Promise.resolve();
+  return new Promise((ok, erro) => {
+    const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+    s.onload = ok; s.onerror = () => erro(new Error("Sem internet para gerar o QR Code")); document.head.appendChild(s);
+  });
+}
+function qrSvg(txt) {
+  const q = qrcode(0, "M"); q.addData(txt); q.make();
+  const d = document.createElement("div"); d.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 });
+  const e = d.querySelector("svg");
+  if (e && !e.getAttribute("viewBox")) e.setAttribute("viewBox", `0 0 ${parseFloat(e.getAttribute("width"))} ${parseFloat(e.getAttribute("height"))}`);
+  e?.removeAttribute("width"); e?.removeAttribute("height");
+  return d.innerHTML;
+}
+function linkCliente(m) {
+  const u = new URL("../cliente/", location.href.split("#")[0].split("?")[0]);
+  u.searchParams.set("m", m.id); u.searchParams.set("n", m.numero); u.searchParams.set("t", m.token);
+  return u.href;
+}
+const soDigitos = s => String(s || "").replace(/\D/g, "");
+function foneWhats(s) { let d = soDigitos(s); if (d.length === 10 || d.length === 11) d = "55" + d; return d.length >= 12 ? d : ""; }
+function fmtFone(s) { const d = soDigitos(s).replace(/^55(?=\d{10,11}$)/, ""); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : s || ""; }
+/* Garante que a mesa aberta tem link (mesas abertas antes desta versão) */
+async function garantirToken(m) {
+  if (m.token) return m.token;
+  const t = novoToken(); await updateDoc(doc(db, C.mesas, m.id), { token: t }); m.token = t; return t;
+}
+async function modalLinkMesa(m, nomeBar) {
+  if ((m.status || "livre") === "livre") return toast("A mesa está livre", "erro");
+  try { await garantirToken(m); } catch (e) { return toast("Sem conexão para gerar o link", "erro"); }
+  const link = linkCliente(m);
+  let svg = ""; try { await carregarQR(); svg = qrSvg(link); } catch (e) { svg = ""; }
+  const md = abrirModal(`<div class="mh"><h2>Link da ${esc(nomeMesa(m))}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="muted small">Com este link o cliente acompanha a comanda, chama o garçom e pede a conta. <b>Ele expira quando a mesa for fechada.</b></p>
+    ${svg ? `<div class="qr-tela">${svg}</div><p class="small muted" style="text-align:center">Mostre esta tela para o cliente escanear</p>` : `<div class="alerta" style="margin-top:12px">Não foi possível desenhar o QR Code agora — use o WhatsApp ou copie o link.</div>`}
+    <label>WhatsApp do cliente</label>
+    <div class="row"><input id="wz" inputmode="tel" placeholder="(12) 99999-9999" value="${esc(fmtFone(m.whatsapp || ""))}" class="grow">
+      <button class="btn ok" id="wzEnv">Enviar</button></div>
+    <button class="btn ghost block" id="cpLink" style="margin-top:10px">Copiar link</button>`);
+  $("#wzEnv", md.el).onclick = () => {
+    const f = foneWhats($("#wz", md.el).value);
+    if (!f) return toast("Número inválido — use DDD + número", "erro");
+    if (soDigitos(m.whatsapp) !== f) salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f }));
+    const txt = `Olá! Esta é a comanda da ${nomeMesa(m)} no ${nomeBar}.\nPor aqui você acompanha o consumo, chama o garçom e pede a conta:\n${link}`;
+    window.open(`https://wa.me/${f}?text=${encodeURIComponent(txt)}`, "_blank");
+  };
+  $("#cpLink", md.el).onclick = () => copiar(link);
+}
+/* Ao fechar/liberar a mesa: encerra a comanda online (o link expira) */
+function encerrarComanda(batch, m, c) {
+  if (!m.token) return;
+  batch.set(doc(db, C.comandas, m.token), { numero: m.numero, nome: m.nome || "", status: "encerrada", total: c ? c.total : 0, hash: "encerrada", atualizadoEm: serverTimestamp() });
+  batch.delete(doc(db, C.chamados, m.id));
 }
 
 
@@ -720,65 +767,17 @@ function gerenciarMesas() {
       <div class="grow"><label>Até a mesa</label><input id="ate" type="number" inputmode="numeric" value="${ult + 10}"></div>
       <div class="grow"><label>Lugares</label><input id="lug" type="number" inputmode="numeric" value="4"></div></div>
     <button class="btn block" id="criar" style="margin-top:14px">Criar mesas</button>
-    <p class="muted small" style="margin-top:14px">Para editar nome/lugares ou excluir, toque numa mesa livre na tela de Mesas.</p>
-    <h3>QR Code das mesas</h3>
-    <p class="muted small">O cliente aponta a câmera e pode chamar o garçom ou pedir a conta. Imprima e cole em cada mesa.</p>
-    <button class="btn ghost block" id="qr" style="margin-top:8px" ${S.mesas.length ? "" : "disabled"}>🖨️ Imprimir QR Codes das mesas</button>
-    <button class="btn ghost block" id="qrNovo" style="margin-top:8px" ${S.mesas.length ? "" : "disabled"}>♻️ Gerar códigos novos (invalida os impressos)</button>`);
-  $("#qr", md.el).onclick = () => { md.fechar(); imprimirQR(); };
-  $("#qrNovo", md.el).onclick = async () => {
-    if (!await confirmar("Gerar códigos novos? Os QR Codes já impressos param de funcionar e será preciso imprimir de novo.", "Gerar novos", true)) return;
-    const b = writeBatch(db); S.mesas.forEach(m => b.update(doc(db, C.mesas, m.id), { token: novoToken() }));
-    await salvar(b.commit(), "Códigos novos gerados"); md.fechar(); imprimirQR();
-  };
+    <p class="muted small" style="margin-top:14px">Para editar nome/lugares ou excluir, toque numa mesa livre na tela de Mesas.</p>`);
+
   $("#criar", md.el).onclick = () => {
     const de = parseInt($("#de", md.el).value), ate = parseInt($("#ate", md.el).value), lug = parseInt($("#lug", md.el).value) || 4;
     if (!(de > 0) || !(ate >= de) || ate - de > 200) return toast("Intervalo inválido", "erro");
     const existentes = new Set(S.mesas.map(m => m.numero));
     const b = writeBatch(db); let n = 0;
-    for (let i = de; i <= ate; i++) if (!existentes.has(i)) { b.set(doc(db, C.mesas, "m" + i), { numero: i, nome: "", lugares: lug, token: novoToken(), ...MESA_LIVRE }); n++; }
+    for (let i = de; i <= ate; i++) if (!existentes.has(i)) { b.set(doc(db, C.mesas, "m" + i), { numero: i, nome: "", lugares: lug, ...MESA_LIVRE }); n++; }
     if (!n) return toast("Essas mesas já existem");
     salvar(b.commit(), `${n} mesa(s) criada(s)`); md.fechar();
   };
-}
-/* ---------- QR Codes das mesas ---------- */
-function novoToken() { return rid() + rid() + rid(); }
-function carregarQR() {
-  if (window.qrcode) return Promise.resolve();
-  return new Promise((ok, erro) => {
-    const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
-    s.onload = ok; s.onerror = () => erro(new Error("Sem internet para gerar o QR Code")); document.head.appendChild(s);
-  });
-}
-function linkCliente(m) {
-  const u = new URL("../cliente/", location.href.split("#")[0].split("?")[0]);
-  u.searchParams.set("m", m.id); u.searchParams.set("n", m.numero); u.searchParams.set("t", m.token);
-  return u.href;
-}
-async function imprimirQR() {
-  try { await carregarQR(); } catch (e) { return toast(e.message, "erro"); }
-  const semToken = S.mesas.filter(m => !m.token);
-  if (semToken.length) {
-    const b = writeBatch(db); semToken.forEach(m => { m.token = novoToken(); b.update(doc(db, C.mesas, m.id), { token: m.token }); });
-    try { await b.commit(); } catch (e) { return toast("Falha ao preparar os códigos: " + (e.code || e.message), "erro"); }
-  }
-  const svg = txt => {
-    const q = qrcode(0, "M"); q.addData(txt); q.make();
-    const d = document.createElement("div"); d.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0 });
-    const e = d.querySelector("svg");
-    if (e && !e.getAttribute("viewBox")) e.setAttribute("viewBox", `0 0 ${parseFloat(e.getAttribute("width"))} ${parseFloat(e.getAttribute("height"))}`);
-    e?.removeAttribute("width"); e?.removeAttribute("height");
-    return d.innerHTML;
-  };
-  const w = document.createElement("div"); w.id = "qrSheet";
-  w.innerHTML = `<div class="qr-bar no-print"><b>QR Codes · ${S.mesas.length} mesas</b><div class="row"><button class="btn ghost sm" id="qrFechar">Fechar</button><button class="btn sm" id="qrPrint">🖨️ Imprimir / PDF</button></div></div>
-    <div class="qr-grid">${S.mesas.map(m => `<div class="qr-card"><div class="qr-bar-nome">${esc(S.cfg.nomeBar)}</div>
-      <div class="qr-mesa">Mesa ${esc(m.numero)}</div>${m.nome ? `<div class="qr-sub">${esc(m.nome)}</div>` : ""}
-      <div class="qr-img">${svg(linkCliente(m))}</div>
-      <div class="qr-txt">📷 Aponte a câmera do celular<br><b>para ver a comanda, chamar o garçom<br>ou pedir a conta</b></div></div>`).join("")}</div>`;
-  document.body.appendChild(w); document.body.classList.add("qr-aberto");
-  $("#qrFechar", w).onclick = () => { w.remove(); document.body.classList.remove("qr-aberto"); };
-  $("#qrPrint", w).onclick = () => window.print();
 }
 function editarMesa(m) {
   const md = abrirModal(`<div class="mh"><h2>Mesa ${m.numero}</h2><button class="icon-btn" data-fechar>✕</button></div>
@@ -823,7 +822,7 @@ function renderFechamento() {
     <div class="kv tot"><span>Total</span><span>${brl(c.total)}</span></div>
     <div class="kv"><span class="muted">Recebido</span><span>${brl(pagoTot)}</span></div>
     <div class="kv"><span class="muted">Falta receber</span><span>${brl(c.total - pagoTot)}</span></div>
-    <div class="row" style="margin-top:14px"><button class="btn ghost" id="fCop">Copiar conta</button>
+    <div class="row" style="margin-top:14px"><button class="btn ghost" id="fLink" title="Link e QR Code da mesa">📱</button><button class="btn ghost" id="fCop">Copiar conta</button>
       ${m.status === "fechamento" ? `<button class="btn ghost" id="fReab">Reabrir</button>` : ""}
       <button class="btn grow" id="fFechar">Fechar mesa</button></div>`;
   const ref = doc(db, C.mesas, m.id);
@@ -836,6 +835,7 @@ function renderFechamento() {
   });
   $$("[data-desf]", box).forEach(b => b.onclick = () => { const n = { ...pg }; delete n[b.dataset.desf]; salvar(updateDoc(ref, { pagamentos: n })); });
   $("#fCop", box).onclick = () => copiar(contaTexto(S.cfg.nomeBar, m, c));
+  $("#fLink", box).onclick = () => modalLinkMesa(m, S.cfg.nomeBar);
   $("#fReab", box)?.addEventListener("click", () => salvar(updateDoc(ref, { status: "aberta", contaPedidaEm: null })));
   $("#fFechar", box).onclick = () => fecharMesa(m, peds, c);
 }
@@ -854,6 +854,7 @@ async function fecharMesa(m, peds, c) {
     itens: c.itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: i.total / 100 }))
   });
   peds.forEach(p => b.update(doc(db, C.pedidos, p.id), { aberto: false, ...(["recebido", "preparando", "pronto"].includes(p.status) ? { status: "entregue" } : {}) }));
+  encerrarComanda(b, m, c);
   b.update(doc(db, C.mesas, m.id), { ...MESA_LIVRE });
   salvar(b.commit(), `Mesa ${m.numero} fechada · ${brl(c.total)}`);
   S.modalMesa?.md.fechar();
