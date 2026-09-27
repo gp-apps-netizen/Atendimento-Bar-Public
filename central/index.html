@@ -115,6 +115,15 @@ table.t td.r,table.t th.r{text-align:right}
 .alerta{background:#0c1f33;border:1px solid var(--info);border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .pago{color:var(--ok);font-weight:600;font-size:.78rem}
 
+.flag.chama{background:var(--er);color:#fff;font-size:.9rem;padding:2px 6px}
+.mesa.chamando{border-color:var(--er)!important;box-shadow:0 0 0 2px rgba(239,83,80,.45);animation:pul 1.2s ease-in-out infinite}
+@keyframes pul{50%{box-shadow:0 0 0 5px rgba(239,83,80,.12)}}
+.chamados{margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.chamado{display:flex;align-items:center;gap:10px;background:#3a1616;border:1px solid var(--er);border-radius:12px;padding:10px 12px}
+.chamado.conta{background:#0c1f33;border-color:var(--info)}
+.chamado b{font-family:'Space Grotesk';font-size:1.05rem}
+.chamado .small{color:var(--mu)}
+
 .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
 .kcol h3{margin-top:0;display:flex;justify-content:space-between}
 .pedido.novo{animation:pisca 1s ease-in-out 4}
@@ -133,7 +142,22 @@ table.t td.r,table.t th.r{text-align:right}
 .prodrow .pn{flex:1;min-width:0;text-align:left}.prodrow.off .pn{opacity:.45}
 .pag{display:flex;gap:6px;align-items:center;margin-top:6px}
 .pag select{padding:7px 8px;width:auto;font-size:.85rem}
+#qrSheet{position:fixed;inset:0;z-index:80;background:#fff;color:#111;overflow:auto}
+.qr-bar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;gap:10px}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;padding:14px;max-width:900px;margin:0 auto}
+.qr-card{border:2px dashed #bbb;border-radius:14px;padding:16px;text-align:center;break-inside:avoid;page-break-inside:avoid}
+.qr-bar-nome{font-size:.85rem;color:#666;text-transform:uppercase;letter-spacing:.08em}
+.qr-mesa{font-family:'Space Grotesk',sans-serif;font-size:2.1rem;font-weight:700;margin:2px 0}
+.qr-sub{color:#666;font-size:.9rem}
+.qr-img{width:170px;height:170px;margin:12px auto}.qr-img svg{width:100%;height:100%}
+.qr-txt{font-size:.85rem;color:#333;line-height:1.35}
+body.qr-aberto{overflow:hidden}
 @media print{
+  body.qr-aberto > *:not(#qrSheet){display:none!important}
+  body.qr-aberto #qrSheet{position:static;overflow:visible}
+  body.qr-aberto{padding:0;overflow:visible}
+  .qr-grid{grid-template-columns:repeat(2,1fr);max-width:none}
+
   body{background:#fff;color:#000;padding:0}
   .top,.tabs,.no-print,#toast{display:none!important}
   .card,.kpi{border:1px solid #bbb;background:#fff;color:#000}
@@ -153,6 +177,7 @@ table.t td.r,table.t th.r{text-align:right}
 </header>
 
 <main>
+  <div id="chamadosBox" class="no-print"></div>
   <section id="t-login" class="tela center">
     <div class="hero-ico">🧾</div>
     <h2>Central de Pedidos</h2>
@@ -250,7 +275,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.2";
+const VERSAO = "1.3";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -266,7 +291,7 @@ let db;
 try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = initializeFirestore(fbApp, {}); }
 
-const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config" };
+const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas" };
 const col = n => collection(db, n);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -464,11 +489,83 @@ function itensHtml(itens, ocupantes = []) {
 }
 function mesaCard(m, extra = {}) {
   const st = m.status || "livre";
-  const flag = st === "fechamento" ? `<span class="flag conta">CONTA</span>` : (extra.prontos ? `<span class="flag pronto">${extra.prontos} PRONTO</span>` : "");
+  const flag = extra.chamado ? `<span class="flag chama">${extra.chamado.tipo === "conta" ? "🧾" : "🙋"}</span>`
+    : st === "fechamento" ? `<span class="flag conta">CONTA</span>` : (extra.prontos ? `<span class="flag pronto">${extra.prontos} PRONTO</span>` : "");
   const inf = st === "livre" ? "Livre" : `${(m.ocupantes || []).length} pess. · ${duracao(m.abertaEm)}`;
-  return `<button class="mesa ${st}" data-mesa="${m.id}">${flag}<span class="n">${esc(m.numero)}</span>
+  return `<button class="mesa ${st}${extra.chamado ? " chamando" : ""}" data-mesa="${m.id}">${flag}<span class="n">${esc(m.numero)}</span>
     <span class="nm">${esc(m.nome || (st === "livre" ? "" : (m.garcomNome || "")))}</span>
     ${st !== "livre" ? `<span class="tot">${brl(extra.total || 0)}</span>` : ""}<span class="inf">${inf}</span></button>`;
+}
+
+/* ---------- Chamados do cliente (QR Code da mesa) ---------- */
+const TIPOS_CHAMADO = { garcom: "🙋 chamando o garçom", conta: "🧾 pedindo a conta" };
+function chamadosHtml(lista, mesas, meuEmail) {
+  if (!lista.length) return "";
+  return `<div class="chamados">${lista.map(c => {
+    const m = mesas.find(x => x.id === c.id);
+    const minha = m && m.garcomEmail && m.garcomEmail === meuEmail;
+    return `<div class="chamado ${c.tipo === "conta" ? "conta" : ""}">
+      <div class="grow"><b>Mesa ${esc(c.mesaNumero)}</b> ${TIPOS_CHAMADO[c.tipo] || "chamando"}
+        <div class="small">${duracao(c.criadoEm)}${m && m.garcomNome ? " · " + esc(m.garcomNome) : (m && (m.status || "livre") === "livre" ? " · mesa livre" : "")}${minha ? " · sua mesa" : ""}</div></div>
+      <button class="btn sm" data-atender="${c.id}">Atender</button></div>`;
+  }).join("")}</div>`;
+}
+function ligarAtender(raiz, nome) {
+  $$("[data-atender]", raiz).forEach(b => b.onclick = () => salvar(deleteDoc(doc(db, C.chamados, b.dataset.atender)), "Chamado atendido"));
+}
+/* Observa os chamados e avisa (som + vibração) quando chega um novo */
+function ouvirChamados(onMuda, somLigado = () => true) {
+  let ant = null;
+  return onSnapshot(col(C.chamados), s => {
+    const lista = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (tsDate(a.criadoEm) || new Date()) - (tsDate(b.criadoEm) || new Date()));
+    const assin = c => c.id + "|" + c.tipo + "|" + (tsDate(c.criadoEm)?.getTime() || "");
+    if (ant) {
+      const novos = lista.filter(c => !ant.has(assin(c)) && tsDate(c.criadoEm));
+      if (novos.length) { if (somLigado()) beep(4); toast("🔔 " + novos.map(c => `Mesa ${c.mesaNumero} ${TIPOS_CHAMADO[c.tipo] || "chamando"}`).join(" · ")); }
+    }
+    ant = new Set(lista.map(assin));
+    onMuda(lista);
+  }, erroSnap);
+}
+
+/* ---------- Comanda online (o que o cliente vê pelo QR Code) ----------
+   Cada mesa tem um resumo público em bar_comandas/{token da mesa}.
+   Qualquer aparelho da equipe mantém esse resumo atualizado. */
+function resumoComanda(m, peds, cfg) {
+  if ((m.status || "livre") === "livre") return { numero: m.numero, nome: m.nome || "", status: "livre" };
+  const c = calcConta(m, peds, cfg), pg = m.pagamentos || {};
+  const ativos = peds.filter(p => ["recebido", "preparando", "pronto"].includes(p.status));
+  return {
+    numero: m.numero, nome: m.nome || "", status: m.status, sessao: m.sessao || "",
+    abertaEm: tsDate(m.abertaEm)?.getTime() || null,
+    divisao: c.divisao, pct: c.pct, subtotal: c.subtotal, taxa: c.taxa, total: c.total,
+    itens: c.itens.map(i => ({ nome: i.nome, qtd: i.qtd, total: i.total })),
+    pessoas: c.pessoas.length > 1 ? c.pessoas.map(p => ({ nome: p.nome, total: p.total, pago: !!pg[p.id] })) : [],
+    emPreparo: ativos.filter(p => p.status !== "pronto").reduce((n, p) => n + (p.itens || []).reduce((a, i) => a + i.qtd, 0), 0),
+    aCaminho: ativos.filter(p => p.status === "pronto").reduce((n, p) => n + (p.itens || []).reduce((a, i) => a + i.qtd, 0), 0)
+  };
+}
+const _pend = {};
+function sincronizarComandas(S) {
+  if (!S.comandasOk || !S.mesasOk || !S.pedidosOk || !S.cfgOk) return;
+  for (const m of S.mesas) {
+    if (!m.token) continue;
+    const peds = S.pedidos.filter(p => p.mesaId === m.id && p.sessao === m.sessao);
+    const dado = resumoComanda(m, peds, S.cfg), hash = JSON.stringify(dado);
+    const atual = S.comandas[m.token];
+    if ((atual && atual.hash === hash) || (!atual && dado.status === "livre") || _pend[m.token] === hash) continue;
+    _pend[m.token] = hash;
+    setTimeout(() => {   // pequena espera aleatória evita vários aparelhos gravando a mesma coisa
+      if (S.comandas[m.token]?.hash === hash) { delete _pend[m.token]; return; }
+      setDoc(doc(db, C.comandas, m.token), { ...dado, hash, atualizadoEm: serverTimestamp() })
+        .catch(e => console.warn("comanda", e)).finally(() => { if (_pend[m.token] === hash) delete _pend[m.token]; });
+    }, 300 + Math.random() * 1500);
+  }
+}
+function ouvirComandas(S, depois) {
+  return onSnapshot(col(C.comandas), s => {
+    S.comandas = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); S.comandasOk = true; depois();
+  }, e => console.warn("comandas", e));
 }
 
 
@@ -486,7 +583,7 @@ $("#btnSair").onclick = async () => { if (await confirmar("Sair da conta neste a
 onAuthStateChanged(auth, u => verificar(u));
 
 async function verificar(u) {
-  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null;
+  S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; $("#chamadosBox").innerHTML = "";
   ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u));
   if (!u) return mostrar("login");
   const email = emailDe(u);
@@ -502,9 +599,9 @@ async function verificar(u) {
 function iniciar() {
   S.unsub.push(onSnapshot(doc(db, C.config, "geral"), d => {
     S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) };
-    $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Central"; render();
+    S.cfgOk = true; $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Central"; render();
   }, erroSnap));
-  S.unsub.push(onSnapshot(col(C.mesas), s => { S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); render(); }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.mesas), s => { S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); S.mesasOk = true; render(); }, erroSnap));
   S.unsub.push(onSnapshot(query(col(C.pedidos), where("aberto", "==", true)), s => {
     const peds = s.docs.map(d => ({ id: d.id, ...d.data() }));
     if (S.idsAnt) {
@@ -512,11 +609,13 @@ function iniciar() {
       if (novos.length) { novos.forEach(p => S.novos.add(p.id)); if (S.som) beep(2, false); toast(`🆕 Novo pedido — ${[...new Set(novos.map(p => "Mesa " + p.mesaNumero))].join(", ")}`); setTimeout(() => { novos.forEach(p => S.novos.delete(p.id)); }, 5000); }
     }
     S.idsAnt = new Set(peds.map(p => p.id));
-    S.pedidos = peds; render();
+    S.pedidos = peds; S.pedidosOk = true; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.produtos), s => { S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome)); if (S.tela === "cardapio") renderCardapio(); }, erroSnap));
   S.unsub.push(onSnapshot(col(C.clientes), s => { S.clientes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.nome.localeCompare(b.nome)); if (S.tela === "mais") renderMais(); }, erroSnap));
   S.unsub.push(onSnapshot(col(C.garcons), s => { S.garcons = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || "")); if (S.tela === "mais") renderMais(); }, erroSnap));
+  S.comandas = {}; S.unsub.push(ouvirComandas(S, () => render()));
+  S.unsub.push(ouvirChamados(l => { S.chamados = l; render(); }, () => S.som));
   mostrar("pedidos");
 }
 
@@ -545,6 +644,8 @@ setInterval(() => { if (["pedidos", "mesas"].includes(S.tela)) render(); }, 3000
 
 function render() {
   if (!S.perfil) return;
+  sincronizarComandas(S);
+  const box = $("#chamadosBox"); box.innerHTML = chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
   if (S.tela === "pedidos") renderPedidos();
   else if (S.tela === "mesas") renderMesas();
   else if (S.tela === "cardapio") renderCardapio();
@@ -601,7 +702,7 @@ function renderMesas() {
   $("#mesasResumo").textContent = S.mesas.length ? `${ab.length} ocupadas · ${S.mesas.length - ab.length} livres · em aberto ${brl(totAb)}` : "";
   $("#mesasGrid").innerHTML = S.mesas.length ? S.mesas.map(m => {
     const peds = pedidosDa(m);
-    return mesaCard(m, { total: calcConta(m, peds, S.cfg).total, prontos: peds.filter(p => p.status === "pronto").length });
+    return mesaCard(m, { total: calcConta(m, peds, S.cfg).total, prontos: peds.filter(p => p.status === "pronto").length, chamado: (S.chamados || []).find(c => c.id === m.id) });
   }).join("") : `<div class="empty" style="grid-column:1/-1">Nenhuma mesa cadastrada.<br><button class="btn" id="criarPrimeiras" style="margin-top:12px">Criar mesas</button></div>`;
   $$("#t-mesas [data-mesa]").forEach(b => b.onclick = () => {
     const m = S.mesas.find(x => x.id === b.dataset.mesa);
@@ -619,16 +720,65 @@ function gerenciarMesas() {
       <div class="grow"><label>Até a mesa</label><input id="ate" type="number" inputmode="numeric" value="${ult + 10}"></div>
       <div class="grow"><label>Lugares</label><input id="lug" type="number" inputmode="numeric" value="4"></div></div>
     <button class="btn block" id="criar" style="margin-top:14px">Criar mesas</button>
-    <p class="muted small" style="margin-top:14px">Para editar nome/lugares ou excluir, toque numa mesa livre na tela de Mesas.</p>`);
+    <p class="muted small" style="margin-top:14px">Para editar nome/lugares ou excluir, toque numa mesa livre na tela de Mesas.</p>
+    <h3>QR Code das mesas</h3>
+    <p class="muted small">O cliente aponta a câmera e pode chamar o garçom ou pedir a conta. Imprima e cole em cada mesa.</p>
+    <button class="btn ghost block" id="qr" style="margin-top:8px" ${S.mesas.length ? "" : "disabled"}>🖨️ Imprimir QR Codes das mesas</button>
+    <button class="btn ghost block" id="qrNovo" style="margin-top:8px" ${S.mesas.length ? "" : "disabled"}>♻️ Gerar códigos novos (invalida os impressos)</button>`);
+  $("#qr", md.el).onclick = () => { md.fechar(); imprimirQR(); };
+  $("#qrNovo", md.el).onclick = async () => {
+    if (!await confirmar("Gerar códigos novos? Os QR Codes já impressos param de funcionar e será preciso imprimir de novo.", "Gerar novos", true)) return;
+    const b = writeBatch(db); S.mesas.forEach(m => b.update(doc(db, C.mesas, m.id), { token: novoToken() }));
+    await salvar(b.commit(), "Códigos novos gerados"); md.fechar(); imprimirQR();
+  };
   $("#criar", md.el).onclick = () => {
     const de = parseInt($("#de", md.el).value), ate = parseInt($("#ate", md.el).value), lug = parseInt($("#lug", md.el).value) || 4;
     if (!(de > 0) || !(ate >= de) || ate - de > 200) return toast("Intervalo inválido", "erro");
     const existentes = new Set(S.mesas.map(m => m.numero));
     const b = writeBatch(db); let n = 0;
-    for (let i = de; i <= ate; i++) if (!existentes.has(i)) { b.set(doc(db, C.mesas, "m" + i), { numero: i, nome: "", lugares: lug, ...MESA_LIVRE }); n++; }
+    for (let i = de; i <= ate; i++) if (!existentes.has(i)) { b.set(doc(db, C.mesas, "m" + i), { numero: i, nome: "", lugares: lug, token: novoToken(), ...MESA_LIVRE }); n++; }
     if (!n) return toast("Essas mesas já existem");
     salvar(b.commit(), `${n} mesa(s) criada(s)`); md.fechar();
   };
+}
+/* ---------- QR Codes das mesas ---------- */
+function novoToken() { return rid() + rid() + rid(); }
+function carregarQR() {
+  if (window.qrcode) return Promise.resolve();
+  return new Promise((ok, erro) => {
+    const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+    s.onload = ok; s.onerror = () => erro(new Error("Sem internet para gerar o QR Code")); document.head.appendChild(s);
+  });
+}
+function linkCliente(m) {
+  const u = new URL("../cliente/", location.href.split("#")[0].split("?")[0]);
+  u.searchParams.set("m", m.id); u.searchParams.set("n", m.numero); u.searchParams.set("t", m.token);
+  return u.href;
+}
+async function imprimirQR() {
+  try { await carregarQR(); } catch (e) { return toast(e.message, "erro"); }
+  const semToken = S.mesas.filter(m => !m.token);
+  if (semToken.length) {
+    const b = writeBatch(db); semToken.forEach(m => { m.token = novoToken(); b.update(doc(db, C.mesas, m.id), { token: m.token }); });
+    try { await b.commit(); } catch (e) { return toast("Falha ao preparar os códigos: " + (e.code || e.message), "erro"); }
+  }
+  const svg = txt => {
+    const q = qrcode(0, "M"); q.addData(txt); q.make();
+    const d = document.createElement("div"); d.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0 });
+    const e = d.querySelector("svg");
+    if (e && !e.getAttribute("viewBox")) e.setAttribute("viewBox", `0 0 ${parseFloat(e.getAttribute("width"))} ${parseFloat(e.getAttribute("height"))}`);
+    e?.removeAttribute("width"); e?.removeAttribute("height");
+    return d.innerHTML;
+  };
+  const w = document.createElement("div"); w.id = "qrSheet";
+  w.innerHTML = `<div class="qr-bar no-print"><b>QR Codes · ${S.mesas.length} mesas</b><div class="row"><button class="btn ghost sm" id="qrFechar">Fechar</button><button class="btn sm" id="qrPrint">🖨️ Imprimir / PDF</button></div></div>
+    <div class="qr-grid">${S.mesas.map(m => `<div class="qr-card"><div class="qr-bar-nome">${esc(S.cfg.nomeBar)}</div>
+      <div class="qr-mesa">Mesa ${esc(m.numero)}</div>${m.nome ? `<div class="qr-sub">${esc(m.nome)}</div>` : ""}
+      <div class="qr-img">${svg(linkCliente(m))}</div>
+      <div class="qr-txt">📷 Aponte a câmera do celular<br><b>para ver a comanda, chamar o garçom<br>ou pedir a conta</b></div></div>`).join("")}</div>`;
+  document.body.appendChild(w); document.body.classList.add("qr-aberto");
+  $("#qrFechar", w).onclick = () => { w.remove(); document.body.classList.remove("qr-aberto"); };
+  $("#qrPrint", w).onclick = () => window.print();
 }
 function editarMesa(m) {
   const md = abrirModal(`<div class="mh"><h2>Mesa ${m.numero}</h2><button class="icon-btn" data-fechar>✕</button></div>
