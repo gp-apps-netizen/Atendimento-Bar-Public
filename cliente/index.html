@@ -48,6 +48,7 @@ button .i{font-size:1.7rem}
 <body>
 <div class="w">
   <div class="logo">🍺</div>
+  <div class="small" id="bar" style="color:var(--mu);text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;margin-bottom:4px"></div>
   <div class="mesa" id="mesa">Mesa</div>
   <p class="sub" id="sub">Como podemos ajudar?</p>
   <div class="acoes">
@@ -56,6 +57,7 @@ button .i{font-size:1.7rem}
   </div>
   <div id="msg"></div>
   <div class="com" id="com"><h2>Comanda da mesa</h2><div class="vazio">Carregando…</div></div>
+  <a id="zap" class="hidden" target="_blank" style="display:none;margin-top:18px;color:var(--ok);text-decoration:none;font-weight:600">💬 Falar com o bar no WhatsApp</a>
   <p class="rod">A comanda atualiza sozinha a cada pedido. Este link vale só enquanto a mesa estiver aberta.</p>
 </div>
 <script type="module">
@@ -121,6 +123,8 @@ if (!mesaId || !token || !(numero > 0)) {
   const DIV = { itens: "por consumo", igual: "igual entre todos", unica: "conta única" };
   function comanda(d) {
     const box = $("#com");
+    if (d && d.nomeBar) { $("#bar").textContent = d.nomeBar; document.title = d.nomeBar + " · Mesa " + numero; }
+    if (d && d.whatsBar) { const z = $("#zap"); z.href = "https://wa.me/" + d.whatsBar; z.style.display = "inline-block"; }
     if (d && d.status === "encerrada") {
       encerrada = true; $("#bGarcom").disabled = $("#bConta").disabled = true; $(".acoes").style.display = "none"; $("#msg").style.display = "none";
       $("#sub").textContent = "Esta comanda foi encerrada";
