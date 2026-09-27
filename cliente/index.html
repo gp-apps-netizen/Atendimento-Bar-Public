@@ -81,6 +81,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--ac)}
 .etapa .b{width:30px;height:30px;border-radius:50%;border:2px solid var(--bd);display:grid;place-items:center;font-size:.9rem;flex:none}
 .etapa.feita{color:var(--tx)}.etapa.feita .b{background:var(--ok);border-color:var(--ok);color:#03150c}
 .etapa.agora{color:var(--tx);font-weight:600}.etapa.agora .b{border-color:var(--ac);color:var(--ac)}
+.st-loja{font-weight:600;padding:3px 10px;border-radius:99px;font-size:.85rem}.st-loja.on{background:#0f3a28;color:var(--ok)}.st-loja.off{background:#3a1616;color:#ffb4b2}
 .status-g{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;text-align:center;margin:6px 0 2px}
 </style>
 </head>
@@ -220,7 +221,8 @@ function modoLoja() {
     L.cfg = s.exists() ? s.data() : { produtos: [], aberto: false };
     $("#lNome").textContent = L.cfg.nomeBar || "Cardápio";
     document.title = (L.cfg.nomeBar || "Cardápio") + " · Cardápio online";
-    $("#lSub").textContent = L.cfg.entrega === false ? "Pedidos para retirada" : "Retirada e entrega";
+    const exp = L.cfg.expediente === undefined ? L.cfg.aberto : L.cfg.expediente;
+    $("#lSub").innerHTML = `<span class="st-loja ${exp ? "on" : "off"}">${exp ? "🟢 Aberto agora" : "🔴 Fechado agora"}</span> · ${L.cfg.entrega === false ? "pedidos para retirada" : "retirada e entrega"}${L.cfg.horario ? `<br><span style="font-size:.85rem">🕒 ${esc(L.cfg.horario)}</span>` : ""}`;
     if (L.cfg.entrega === false) L.tipo = "retirada";
     // remove do carrinho o que saiu do cardápio
     const ids = new Set((L.cfg.produtos || []).map(p => p.id)); Object.keys(L.cart).forEach(k => { if (!ids.has(k)) delete L.cart[k]; });
@@ -244,7 +246,7 @@ function modoLoja() {
     const ult = ls.get("dlv_ultimo");
     let ultCat = null;
     C.innerHTML = `${ult && !L.pedidoId ? `<div class="aviso azul"><span>Você tem um pedido recente.</span><button class="chip" id="verUlt">Acompanhar</button></div>` : ""}
-      ${cfg.aberto ? "" : `<div class="aviso">⏸️ No momento não estamos recebendo pedidos online. Confira o cardápio e volte mais tarde.</div>`}
+      ${cfg.aberto ? "" : cfg.expediente === false ? `<div class="aviso">🔴 <b>Estamos fechados agora.</b> Confira o cardápio${cfg.horario ? ` — nosso horário: ${esc(cfg.horario)}` : " e volte mais tarde"}.</div>` : `<div class="aviso">⏸️ No momento não estamos recebendo pedidos online. Confira o cardápio e volte mais tarde.</div>`}
       ${prods.length ? `<div class="chips">${cats.map(c => `<button class="chip ${c === L.cat ? "on" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("")}</div>` : `<div class="vazio">Cardápio indisponível no momento.</div>`}
       ${lista.map(p => {
         const h = L.cat === "Todas" && p.categoria !== ultCat ? `<div class="cat">${esc(p.categoria || "Outros")}</div>` : ""; ultCat = p.categoria;
