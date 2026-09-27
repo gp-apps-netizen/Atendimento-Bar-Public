@@ -124,6 +124,8 @@ table.t td.r,table.t th.r{text-align:right}
 .chamado b{font-family:'Space Grotesk';font-size:1.05rem}
 .chamado .small{color:var(--mu)}
 
+.qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
+
 </style>
 </head>
 <body>
@@ -197,7 +199,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.3";
+const VERSAO = "1.4";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -376,7 +378,7 @@ function calcConta(mesa, pedidos, cfg = {}) {
   const taxa = pessoas.reduce((s, p) => s + p.taxa, 0);
   return { divisao, pct, subtotal, taxa, total: subtotal + taxa, pessoas, itens: Object.values(agg).sort((a, b) => b.total - a.total) };
 }
-const MESA_LIVRE = { status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
+const MESA_LIVRE = { token: null, whatsapp: null, status: "livre", sessao: null, ocupantes: [], abertaEm: null, garcomEmail: null, garcomNome: null, divisao: "itens", cobrarTaxa: true, pagamentos: {}, contaPedidaEm: null };
 /* Grava sem travar a tela (funciona offline: sincroniza quando a conexão voltar) */
 function salvar(promessa, msgOk) {
   if (msgOk) toast(msgOk, "ok");
@@ -478,7 +480,8 @@ function sincronizarComandas(S) {
     if ((atual && atual.hash === hash) || (!atual && dado.status === "livre") || _pend[m.token] === hash) continue;
     _pend[m.token] = hash;
     setTimeout(() => {   // pequena espera aleatória evita vários aparelhos gravando a mesma coisa
-      if (S.comandas[m.token]?.hash === hash) { delete _pend[m.token]; return; }
+      const agora = S.mesas.find(x => x.id === m.id);
+      if (!agora || agora.token !== m.token || S.comandas[m.token]?.hash === hash) { delete _pend[m.token]; return; }
       setDoc(doc(db, C.comandas, m.token), { ...dado, hash, atualizadoEm: serverTimestamp() })
         .catch(e => console.warn("comanda", e)).finally(() => { if (_pend[m.token] === hash) delete _pend[m.token]; });
     }, 300 + Math.random() * 1500);
@@ -488,6 +491,64 @@ function ouvirComandas(S, depois) {
   return onSnapshot(col(C.comandas), s => {
     S.comandas = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); S.comandasOk = true; depois();
   }, e => console.warn("comandas", e));
+}
+
+/* ---------- Link / QR Code da mesa (um por abertura; expira ao fechar) ---------- */
+function novoToken() { return rid() + rid() + rid(); }
+function carregarQR() {
+  if (window.qrcode) return Promise.resolve();
+  return new Promise((ok, erro) => {
+    const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+    s.onload = ok; s.onerror = () => erro(new Error("Sem internet para gerar o QR Code")); document.head.appendChild(s);
+  });
+}
+function qrSvg(txt) {
+  const q = qrcode(0, "M"); q.addData(txt); q.make();
+  const d = document.createElement("div"); d.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 });
+  const e = d.querySelector("svg");
+  if (e && !e.getAttribute("viewBox")) e.setAttribute("viewBox", `0 0 ${parseFloat(e.getAttribute("width"))} ${parseFloat(e.getAttribute("height"))}`);
+  e?.removeAttribute("width"); e?.removeAttribute("height");
+  return d.innerHTML;
+}
+function linkCliente(m) {
+  const u = new URL("../cliente/", location.href.split("#")[0].split("?")[0]);
+  u.searchParams.set("m", m.id); u.searchParams.set("n", m.numero); u.searchParams.set("t", m.token);
+  return u.href;
+}
+const soDigitos = s => String(s || "").replace(/\D/g, "");
+function foneWhats(s) { let d = soDigitos(s); if (d.length === 10 || d.length === 11) d = "55" + d; return d.length >= 12 ? d : ""; }
+function fmtFone(s) { const d = soDigitos(s).replace(/^55(?=\d{10,11}$)/, ""); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : s || ""; }
+/* Garante que a mesa aberta tem link (mesas abertas antes desta versão) */
+async function garantirToken(m) {
+  if (m.token) return m.token;
+  const t = novoToken(); await updateDoc(doc(db, C.mesas, m.id), { token: t }); m.token = t; return t;
+}
+async function modalLinkMesa(m, nomeBar) {
+  if ((m.status || "livre") === "livre") return toast("A mesa está livre", "erro");
+  try { await garantirToken(m); } catch (e) { return toast("Sem conexão para gerar o link", "erro"); }
+  const link = linkCliente(m);
+  let svg = ""; try { await carregarQR(); svg = qrSvg(link); } catch (e) { svg = ""; }
+  const md = abrirModal(`<div class="mh"><h2>Link da ${esc(nomeMesa(m))}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="muted small">Com este link o cliente acompanha a comanda, chama o garçom e pede a conta. <b>Ele expira quando a mesa for fechada.</b></p>
+    ${svg ? `<div class="qr-tela">${svg}</div><p class="small muted" style="text-align:center">Mostre esta tela para o cliente escanear</p>` : `<div class="alerta" style="margin-top:12px">Não foi possível desenhar o QR Code agora — use o WhatsApp ou copie o link.</div>`}
+    <label>WhatsApp do cliente</label>
+    <div class="row"><input id="wz" inputmode="tel" placeholder="(12) 99999-9999" value="${esc(fmtFone(m.whatsapp || ""))}" class="grow">
+      <button class="btn ok" id="wzEnv">Enviar</button></div>
+    <button class="btn ghost block" id="cpLink" style="margin-top:10px">Copiar link</button>`);
+  $("#wzEnv", md.el).onclick = () => {
+    const f = foneWhats($("#wz", md.el).value);
+    if (!f) return toast("Número inválido — use DDD + número", "erro");
+    if (soDigitos(m.whatsapp) !== f) salvar(updateDoc(doc(db, C.mesas, m.id), { whatsapp: f }));
+    const txt = `Olá! Esta é a comanda da ${nomeMesa(m)} no ${nomeBar}.\nPor aqui você acompanha o consumo, chama o garçom e pede a conta:\n${link}`;
+    window.open(`https://wa.me/${f}?text=${encodeURIComponent(txt)}`, "_blank");
+  };
+  $("#cpLink", md.el).onclick = () => copiar(link);
+}
+/* Ao fechar/liberar a mesa: encerra a comanda online (o link expira) */
+function encerrarComanda(batch, m, c) {
+  if (!m.token) return;
+  batch.set(doc(db, C.comandas, m.token), { numero: m.numero, nome: m.nome || "", status: "encerrada", total: c ? c.total : 0, hash: "encerrada", atualizadoEm: serverTimestamp() });
+  batch.delete(doc(db, C.chamados, m.id));
 }
 
 
@@ -615,6 +676,8 @@ function abrirMesaModal(m) {
     <div class="qty"><button id="menos">−</button><span id="qt"></span><button class="plus" id="mais">+</button></div>
     <label>Nomes (opcional) — digite ou escolha um cliente cadastrado</label>
     <div id="nomes" class="list"></div>${dlClientes()}
+    <label>WhatsApp do cliente (opcional) — para enviar o link da comanda</label>
+    <input id="wzAbrir" inputmode="tel" placeholder="(12) 99999-9999">
     <button class="btn block" id="ok" style="margin-top:16px">Abrir mesa</button>`);
   const desenhar = () => {
     nomes = $$("#nomes input", md.el).map(i => i.value);
@@ -626,14 +689,18 @@ function abrirMesaModal(m) {
   desenhar();
   $("#ok", md.el).onclick = async () => {
     const ocupantes = $$("#nomes input", md.el).map((i, k) => ocupanteDe(i.value, k));
+    const wzTxt = $("#wzAbrir", md.el).value.trim(), whatsapp = wzTxt ? foneWhats(wzTxt) : "";
+    if (wzTxt && !whatsapp) return toast("WhatsApp inválido — use DDD + número", "erro");
+    const token = novoToken();
     const btn = $("#ok", md.el); btn.disabled = true; btn.textContent = "Abrindo…";
     try {
       await runTransaction(db, async tx => {
         const ref = doc(db, C.mesas, m.id); const d = await tx.get(ref);
         if ((d.data()?.status || "livre") !== "livre") throw new Error("ocupada");
-        tx.update(ref, { ...MESA_LIVRE, status: "aberta", sessao: rid(), ocupantes, abertaEm: serverTimestamp(), garcomEmail: S.perfil.email, garcomNome: S.perfil.nome });
+        tx.update(ref, { ...MESA_LIVRE, token, whatsapp: whatsapp || null, status: "aberta", sessao: rid(), ocupantes, abertaEm: serverTimestamp(), garcomEmail: S.perfil.email, garcomNome: S.perfil.nome });
       });
       md.fechar(); S.mesaId = m.id; S.aguardar = m.id; mostrar("mesa");
+      if (whatsapp) modalLinkMesa({ ...m, status: "aberta", token, whatsapp }, S.cfg.nomeBar);
     } catch (e) {
       btn.disabled = false; btn.textContent = "Abrir mesa";
       toast(e.message === "ocupada" ? "Outra pessoa acabou de abrir esta mesa" : "Sem conexão para abrir a mesa. Tente de novo.", "erro");
@@ -658,7 +725,8 @@ function renderMesa() {
     ${m.status === "fechamento" ? `<div class="alerta" style="margin-top:12px">Conta pedida — aguardando o caixa. <button class="btn ghost sm" id="reabrir" style="margin-left:6px">Reabrir</button></div>` : ""}
     <h3>Ocupantes</h3>
     <div class="chips">${(m.ocupantes || []).map(o => `<button class="chip" data-oc="${o.id}">${esc(o.nome)}${pg[o.id] ? " ✓" : ""}</button>`).join("")}<button class="chip add" id="addOc">＋ Pessoa</button></div>
-    <button class="btn block" id="novoPed" style="margin:16px 0 4px;padding:14px">＋ Novo pedido</button>
+    <div class="row" style="margin:16px 0 4px"><button class="btn grow" id="novoPed" style="padding:14px">＋ Novo pedido</button>
+      <button class="btn ghost" id="linkMesa" style="padding:14px" title="Link e QR Code da mesa">📱 Link</button></div>
     <h3>Pedidos (${validos.length})</h3>
     <div class="list">${peds.length ? peds.slice().reverse().map(p => pedidoCard(p, m)).join("") : `<div class="empty">Nenhum pedido ainda.</div>`}</div>
     <h3>Conta</h3>
@@ -680,6 +748,7 @@ function renderMesa() {
 
   $("#voltar").onclick = () => mostrar("mesas");
   $("#novoPed").onclick = () => novoPedido(m);
+  $("#linkMesa").onclick = () => modalLinkMesa(m, S.cfg.nomeBar);
   $("#addOc").onclick = () => editarOcupante(m, null);
   $$("[data-oc]").forEach(b => b.onclick = () => editarOcupante(m, b.dataset.oc));
   $$("#segDiv button").forEach(b => b.onclick = () => salvar(updateDoc(doc(db, C.mesas, m.id), { divisao: b.dataset.d })));
@@ -691,6 +760,7 @@ function renderMesa() {
     if (!await confirmar(`Liberar a mesa ${m.numero} sem consumo?`, "Liberar")) return;
     const b = writeBatch(db);
     peds.forEach(p => b.update(doc(db, C.pedidos, p.id), { aberto: false }));
+    encerrarComanda(b, m, null);
     b.update(doc(db, C.mesas, m.id), { ...MESA_LIVRE });
     salvar(b.commit(), "Mesa liberada");
   });
