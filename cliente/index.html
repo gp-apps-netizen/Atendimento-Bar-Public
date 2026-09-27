@@ -62,6 +62,10 @@ button:disabled{opacity:.45}
 .cat{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);margin:18px 0 8px}
 .prod{display:flex;align-items:center;gap:10px;padding:12px;background:var(--s1);border:1px solid var(--bd);border-radius:14px;margin-bottom:8px}
 .prod .pn{flex:1;min-width:0}.prod .pn b{display:block;font-weight:500}.prod .pn small{color:var(--mu)}
+.prod .pn .d{display:block;color:var(--mu);font-size:.8rem;line-height:1.3;margin:2px 0}
+.prod .foto{width:68px;height:68px;border-radius:12px;object-fit:cover;background:var(--s3);flex:none;cursor:zoom-in}
+.zoom{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:50;display:grid;place-items:center;padding:20px}
+.zoom img{max-width:100%;max-height:80vh;border-radius:14px}
 .qty{display:flex;align-items:center;gap:4px}
 .qty button{width:34px;height:34px;border-radius:9px;background:var(--s3);font-size:1.15rem;font-weight:700}
 .qty button.plus{background:var(--ac);color:var(--acx)}
@@ -112,7 +116,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--ac)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, addDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAeSmdHNn7LTk60DKO3DCGOTvPaNHdzMF4",
@@ -251,14 +255,35 @@ function modoLoja() {
       ${lista.map(p => {
         const h = L.cat === "Todas" && p.categoria !== ultCat ? `<div class="cat">${esc(p.categoria || "Outros")}</div>` : ""; ultCat = p.categoria;
         const n = L.cart[p.id] || 0;
-        return `${h}<div class="prod"><div class="pn"><b>${esc(p.nome)}</b><small>${brl(Math.round(p.preco * 100))}</small></div>
+        return `${h}<div class="prod">${p.fotoV ? `<img class="foto" data-foto="${p.id}" data-v="${p.fotoV}" alt="">` : ""}<div class="pn"><b>${esc(p.nome)}</b>${p.desc ? `<span class="d">${esc(p.desc)}</span>` : ""}<small>${brl(Math.round(p.preco * 100))}</small></div>
           ${cfg.aberto ? `<div class="qty">${n ? `<button data-sub="${p.id}">−</button><span>${n}</span>` : ""}<button class="plus" data-add="${p.id}">+</button></div>` : ""}</div>`;
       }).join("")}
       ${cfg.whatsBar ? `<div style="text-align:center"><a class="zap" target="_blank" href="https://wa.me/${cfg.whatsBar}">💬 Falar com o bar no WhatsApp</a></div>` : ""}`;
+    carregarFotos();
     $$("[data-cat]").forEach(b => b.onclick = () => { L.cat = b.dataset.cat; render(); });
     $$("[data-add]").forEach(b => b.onclick = () => { L.cart[b.dataset.add] = (L.cart[b.dataset.add] || 0) + 1; render(); });
     $$("[data-sub]").forEach(b => b.onclick = () => { const k = b.dataset.sub; L.cart[k]--; if (!L.cart[k]) delete L.cart[k]; render(); });
     $("#verUlt")?.addEventListener("click", () => acompanhar(ult));
+  }
+
+  /* fotos: buscadas uma vez por produto/versão e guardadas em memória */
+  const fotoCache = {};
+  function porFoto(img, src) {
+    img.src = src;
+    img.onclick = () => { const z = document.createElement("div"); z.className = "zoom"; z.innerHTML = `<img src="${src}" alt="">`; z.onclick = () => z.remove(); document.body.appendChild(z); };
+  }
+  function carregarFotos() {
+    $$("img[data-foto]").forEach(img => {
+      const id = img.dataset.foto, v = img.dataset.v, k = id + "_" + v;
+      if (fotoCache[k] && fotoCache[k] !== "…") return porFoto(img, fotoCache[k]);
+      if (fotoCache[k] === "…") return;
+      fotoCache[k] = "…";
+      getDoc(doc(db, "bar_fotos", id)).then(s => {
+        if (!s.exists()) return;
+        fotoCache[k] = s.data().foto;
+        $$(`img[data-foto="${id}"][data-v="${v}"]`).forEach(i => porFoto(i, fotoCache[k]));
+      }).catch(() => { delete fotoCache[k]; });
+    });
   }
 
   function checkout() {
