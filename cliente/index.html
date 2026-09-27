@@ -4,23 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111214">
-<title>Minha mesa</title>
+<title>Cardápio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#111214;--s1:#1a1b1e;--s2:#222327;--bd:#303137;--tx:#ececec;--mu:#9b9ca3;--ac:#f5a524;--acx:#1b1300;--ok:#3ecf8e;--er:#ef5350;--info:#4aa3ff}
+:root{--bg:#111214;--s1:#1a1b1e;--s2:#222327;--s3:#2c2d32;--bd:#303137;--tx:#ececec;--mu:#9b9ca3;--ac:#f5a524;--acx:#1b1300;--ok:#3ecf8e;--er:#ef5350;--info:#4aa3ff;--prep:#b58cff}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;min-height:100vh}
-body{display:flex;flex-direction:column;align-items:center;padding:24px 16px calc(28px + env(safe-area-inset-bottom));text-align:center}
-.w{width:100%;max-width:380px}
+body{display:flex;flex-direction:column;align-items:center;padding:24px 16px calc(28px + env(safe-area-inset-bottom))}
+.hidden{display:none!important}
+.w{width:100%;max-width:380px;text-align:center}
 .logo{width:64px;height:64px;border-radius:18px;background:var(--ac);display:grid;place-items:center;font-size:34px;margin:0 auto 16px}
+.barnome{color:var(--mu);text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;margin-bottom:4px}
 .mesa{font-family:'Space Grotesk',sans-serif;font-size:2.6rem;font-weight:700;line-height:1}
 .sub{color:var(--mu);margin:8px 0 28px}
-button{font:inherit;border:0;cursor:pointer;width:100%;border-radius:18px;padding:22px 16px;font-size:1.2rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;transition:transform .1s}
-button:active{transform:scale(.97)}
+button{font:inherit;border:0;cursor:pointer;color:inherit;background:none}
+.big{width:100%;border-radius:18px;padding:22px 16px;font-size:1.2rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;transition:transform .1s}
+.big:active,.btn:active{transform:scale(.97)}
 button:disabled{opacity:.45}
-button .i{font-size:1.7rem}
+.big .i{font-size:1.7rem}
 #bGarcom{background:var(--ac);color:var(--acx)}
 #bConta{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}
 #msg{min-height:84px;margin-top:10px;border-radius:14px;padding:14px;display:none;line-height:1.45}
@@ -29,7 +32,7 @@ button .i{font-size:1.7rem}
 #msg b{display:block;font-size:1.05rem;margin-bottom:2px;color:#fff}
 .rod{color:var(--mu);font-size:.78rem;margin-top:22px}
 .acoes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.acoes button{flex-direction:column;gap:6px;padding:18px 10px;font-size:1rem;margin:0}
+.acoes .big{flex-direction:column;gap:6px;padding:18px 10px;font-size:1rem}
 .com{background:var(--s1);border:1px solid var(--bd);border-radius:18px;padding:16px;margin-top:18px;text-align:left}
 .com h2{font-family:'Space Grotesk',sans-serif;font-size:1.05rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .com h2 small{font-family:'IBM Plex Sans';font-weight:400;color:var(--mu);font-size:.75rem}
@@ -40,29 +43,75 @@ button .i{font-size:1.7rem}
 .tot{display:flex;justify-content:space-between;padding:4px 0;color:var(--mu);font-size:.92rem}
 .tot.g{color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:1.35rem;font-weight:700;border-top:1px solid var(--bd);margin-top:6px;padding-top:10px}
 .tag{display:inline-block;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:99px;margin:0 6px 10px 0}
-.tag.p{background:#2b2144;color:#b58cff}.tag.c{background:#0f3a28;color:var(--ok)}.tag.f{background:#0c1f33;color:var(--info)}
+.tag.p{background:#2b2144;color:var(--prep)}.tag.c{background:#0f3a28;color:var(--ok)}.tag.f{background:#0c1f33;color:var(--info)}
 .pago{color:var(--ok);font-size:.78rem;margin-left:6px}
 .vazio{color:var(--mu);text-align:center;padding:14px 4px;font-size:.92rem}
+.zap{display:inline-block;margin-top:18px;color:var(--ok);text-decoration:none;font-weight:600}
+
+/* ---- cardápio online ---- */
+.loja{width:100%;max-width:520px;text-align:left;padding-bottom:90px}
+.topo{text-align:center;margin-bottom:18px}
+.topo h1{font-family:'Space Grotesk',sans-serif;font-size:1.7rem;line-height:1.1}
+.topo p{color:var(--mu);font-size:.9rem;margin-top:4px}
+.aviso{background:#3a2f12;color:#ffd892;border:1px solid #6b5316;border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:.92rem}
+.aviso.azul{background:#0c1f33;color:#bcdcff;border-color:#1f4d7a;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;margin-bottom:12px}
+.chips::-webkit-scrollbar{display:none}
+.chip{background:var(--s2);border:1px solid var(--bd);border-radius:999px;padding:7px 13px;font-size:.88rem;white-space:nowrap}
+.chip.on{background:var(--ac);color:var(--acx);border-color:var(--ac);font-weight:600}
+.cat{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--mu);margin:18px 0 8px}
+.prod{display:flex;align-items:center;gap:10px;padding:12px;background:var(--s1);border:1px solid var(--bd);border-radius:14px;margin-bottom:8px}
+.prod .pn{flex:1;min-width:0}.prod .pn b{display:block;font-weight:500}.prod .pn small{color:var(--mu)}
+.qty{display:flex;align-items:center;gap:4px}
+.qty button{width:34px;height:34px;border-radius:9px;background:var(--s3);font-size:1.15rem;font-weight:700}
+.qty button.plus{background:var(--ac);color:var(--acx)}
+.qty span{min-width:22px;text-align:center;font-family:'Space Grotesk';font-weight:700}
+.carrinho{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(17,18,20,.96);border-top:1px solid var(--bd);display:flex;justify-content:center;z-index:20}
+.btn{width:100%;max-width:520px;background:var(--ac);color:var(--acx);font-weight:700;border-radius:14px;padding:15px 16px;font-size:1.02rem}
+.btn.ghost{background:var(--s2);color:var(--tx);font-weight:600}
+label{display:block;font-size:.82rem;color:var(--mu);margin:12px 0 4px}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:12px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+.seg{display:flex;background:var(--s2);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;padding:11px 6px;border-radius:9px;color:var(--mu);font-weight:500}
+.seg button.on{background:var(--s3);color:var(--tx);font-weight:600}
+.voltar{color:var(--mu);font-size:.92rem;margin-bottom:10px}
+.etapas{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.etapa{display:flex;gap:10px;align-items:center;color:var(--mu)}
+.etapa .b{width:30px;height:30px;border-radius:50%;border:2px solid var(--bd);display:grid;place-items:center;font-size:.9rem;flex:none}
+.etapa.feita{color:var(--tx)}.etapa.feita .b{background:var(--ok);border-color:var(--ok);color:#03150c}
+.etapa.agora{color:var(--tx);font-weight:600}.etapa.agora .b{border-color:var(--ac);color:var(--ac)}
+.status-g{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;text-align:center;margin:6px 0 2px}
 </style>
 </head>
 <body>
-<div class="w">
+
+<!-- ============ MESA (comanda online) ============ -->
+<div class="w hidden" id="modoMesa">
   <div class="logo">🍺</div>
-  <div class="small" id="bar" style="color:var(--mu);text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;margin-bottom:4px"></div>
+  <div class="barnome" id="bar"></div>
   <div class="mesa" id="mesa">Mesa</div>
   <p class="sub" id="sub">Como podemos ajudar?</p>
   <div class="acoes">
-    <button id="bGarcom"><span class="i">🙋</span>Chamar o garçom</button>
-    <button id="bConta"><span class="i">🧾</span>Pedir a conta</button>
+    <button class="big" id="bGarcom"><span class="i">🙋</span>Chamar o garçom</button>
+    <button class="big" id="bConta"><span class="i">🧾</span>Pedir a conta</button>
   </div>
   <div id="msg"></div>
   <div class="com" id="com"><h2>Comanda da mesa</h2><div class="vazio">Carregando…</div></div>
-  <a id="zap" class="hidden" target="_blank" style="display:none;margin-top:18px;color:var(--ok);text-decoration:none;font-weight:600">💬 Falar com o bar no WhatsApp</a>
+  <a id="zap" class="zap hidden" target="_blank">💬 Falar com o bar no WhatsApp</a>
   <p class="rod">A comanda atualiza sozinha a cada pedido. Este link vale só enquanto a mesa estiver aberta.</p>
 </div>
+
+<!-- ============ CARDÁPIO ONLINE (retirada / entrega) ============ -->
+<div class="loja hidden" id="modoLoja">
+  <div class="topo"><div class="logo">🍺</div><h1 id="lNome">Cardápio</h1><p id="lSub">Retirada e entrega</p></div>
+  <div id="lConteudo"><div class="vazio">Carregando o cardápio…</div></div>
+</div>
+<div class="carrinho hidden" id="carrinho"><button class="btn" id="bCarrinho"></button></div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, addDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAeSmdHNn7LTk60DKO3DCGOTvPaNHdzMF4",
@@ -75,23 +124,26 @@ const firebaseConfig = {
 };
 
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const brl = c => ((c || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } } };
+const db = getFirestore(initializeApp(firebaseConfig));
 const q = new URLSearchParams(location.search);
 const mesaId = q.get("m"), numero = parseInt(q.get("n")), token = q.get("t");
-const ESPERA = 45; // segundos entre chamados do mesmo celular
 
-function msg(tipo, titulo, texto) { const m = $("#msg"); m.className = tipo; m.innerHTML = `<b>${titulo}</b>${texto}`; }
+if (mesaId && token && numero > 0) modoMesa(); else modoLoja();
 
-if (!mesaId || !token || !(numero > 0)) {
-  $("#mesa").textContent = "QR Code inválido";
-  $("#sub").textContent = "Não foi possível identificar a mesa.";
-  $("#bGarcom").disabled = $("#bConta").disabled = true;
-  msg("erro", "Chame o garçom pessoalmente", "Este código não está completo. Avise a equipe para trocar o QR Code da mesa.");
-} else {
+/* =================== MESA =================== */
+function modoMesa() {
+  $("#modoMesa").classList.remove("hidden");
+  const ESPERA = 45;
+  const msg = (tipo, titulo, texto) => { const m = $("#msg"); m.className = tipo; m.innerHTML = `<b>${titulo}</b>${texto}`; };
   $("#mesa").textContent = "Mesa " + numero;
   document.title = "Mesa " + numero;
-  const db = getFirestore(initializeApp(firebaseConfig));
   const chave = "chamado_" + mesaId;
-  const ultimo = () => { try { return Number(localStorage.getItem(chave)) || 0; } catch (e) { return 0; } };
+  const ultimo = () => Number(ls.get(chave)) || 0;
   let timer, encerrada = false;
   function travar() {
     if (encerrada) return;
@@ -105,7 +157,7 @@ if (!mesaId || !token || !(numero > 0)) {
     $("#bGarcom").disabled = $("#bConta").disabled = true;
     try {
       await setDoc(doc(db, "bar_chamados", mesaId), { tipo, token, mesaNumero: numero, criadoEm: serverTimestamp() });
-      try { localStorage.setItem(chave, String(Date.now())); } catch (e) { }
+      ls.set(chave, String(Date.now()));
       if (navigator.vibrate) navigator.vibrate(120);
       msg("ok", tipo === "conta" ? "✓ Conta solicitada" : "✓ Garçom avisado",
         tipo === "conta" ? "Já já trazemos a sua conta." : "Alguém da equipe já está a caminho da sua mesa.");
@@ -118,13 +170,11 @@ if (!mesaId || !token || !(numero > 0)) {
       $("#bGarcom").disabled = $("#bConta").disabled = false;
     }
   }
-  const brl = c => ((c || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const DIV = { itens: "por consumo", igual: "igual entre todos", unica: "conta única" };
   function comanda(d) {
     const box = $("#com");
     if (d && d.nomeBar) { $("#bar").textContent = d.nomeBar; document.title = d.nomeBar + " · Mesa " + numero; }
-    if (d && d.whatsBar) { const z = $("#zap"); z.href = "https://wa.me/" + d.whatsBar; z.style.display = "inline-block"; }
+    if (d && d.whatsBar) { const z = $("#zap"); z.href = "https://wa.me/" + d.whatsBar; z.classList.remove("hidden"); }
     if (d && d.status === "encerrada") {
       encerrada = true; $("#bGarcom").disabled = $("#bConta").disabled = true; $(".acoes").style.display = "none"; $("#msg").style.display = "none";
       $("#sub").textContent = "Esta comanda foi encerrada";
@@ -149,10 +199,171 @@ if (!mesaId || !token || !(numero > 0)) {
   }
   onSnapshot(doc(db, "bar_comandas", token), s => comanda(s.exists() ? s.data() : null),
     e => { console.warn(e); $("#com").innerHTML = `<h2>Comanda da mesa</h2><div class="vazio">Não foi possível carregar a comanda.</div>`; });
-
   $("#bGarcom").onclick = () => chamar("garcom");
   $("#bConta").onclick = () => chamar("conta");
   travar();
+}
+
+/* =================== CARDÁPIO ONLINE =================== */
+function modoLoja() {
+  $("#modoLoja").classList.remove("hidden");
+  const L = { cfg: null, cart: {}, cat: "Todas", tela: "menu", tipo: "retirada", pedidoId: q.get("p") || null, unsubPed: null };
+  const ESPERA_PEDIDO = 60;
+  const C = $("#lConteudo");
+  const qtdTotal = () => Object.values(L.cart).reduce((s, n) => s + n, 0);
+  const itensCart = () => (L.cfg?.produtos || []).filter(p => L.cart[p.id]).map(p => ({ pid: p.id, nome: p.nome, preco: p.preco, qtd: L.cart[p.id] }));
+  const subtotal = () => itensCart().reduce((s, i) => s + Math.round(i.preco * 100) * i.qtd, 0);
+  const taxaEnt = () => L.tipo === "entrega" ? (L.cfg?.taxaEntrega || 0) : 0;
+  const dados = JSON.parse(ls.get("dlv_dados") || "{}");
+
+  onSnapshot(doc(db, "bar_publico", "cardapio"), s => {
+    L.cfg = s.exists() ? s.data() : { produtos: [], aberto: false };
+    $("#lNome").textContent = L.cfg.nomeBar || "Cardápio";
+    document.title = (L.cfg.nomeBar || "Cardápio") + " · Cardápio online";
+    $("#lSub").textContent = L.cfg.entrega === false ? "Pedidos para retirada" : "Retirada e entrega";
+    if (L.cfg.entrega === false) L.tipo = "retirada";
+    // remove do carrinho o que saiu do cardápio
+    const ids = new Set((L.cfg.produtos || []).map(p => p.id)); Object.keys(L.cart).forEach(k => { if (!ids.has(k)) delete L.cart[k]; });
+    if (L.tela !== "status") render();
+  }, e => { console.warn(e); C.innerHTML = `<div class="vazio">Não foi possível carregar o cardápio. Verifique a internet.</div>`; });
+
+  if (L.pedidoId) acompanhar(L.pedidoId);
+
+  function render() {
+    if (L.tela === "menu") menu(); else if (L.tela === "checkout") checkout();
+    const n = qtdTotal();
+    $("#carrinho").classList.toggle("hidden", !(L.tela === "menu" && n && L.cfg?.aberto));
+    $("#bCarrinho").textContent = `Ver pedido · ${n} ${n === 1 ? "item" : "itens"} · ${brl(subtotal())}`;
+  }
+  $("#bCarrinho").onclick = () => { L.tela = "checkout"; render(); window.scrollTo(0, 0); };
+
+  function menu() {
+    const cfg = L.cfg, prods = cfg.produtos || [];
+    const cats = ["Todas", ...new Set(prods.map(p => p.categoria || "Outros"))];
+    const lista = prods.filter(p => L.cat === "Todas" || (p.categoria || "Outros") === L.cat);
+    const ult = ls.get("dlv_ultimo");
+    let ultCat = null;
+    C.innerHTML = `${ult && !L.pedidoId ? `<div class="aviso azul"><span>Você tem um pedido recente.</span><button class="chip" id="verUlt">Acompanhar</button></div>` : ""}
+      ${cfg.aberto ? "" : `<div class="aviso">⏸️ No momento não estamos recebendo pedidos online. Confira o cardápio e volte mais tarde.</div>`}
+      ${prods.length ? `<div class="chips">${cats.map(c => `<button class="chip ${c === L.cat ? "on" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("")}</div>` : `<div class="vazio">Cardápio indisponível no momento.</div>`}
+      ${lista.map(p => {
+        const h = L.cat === "Todas" && p.categoria !== ultCat ? `<div class="cat">${esc(p.categoria || "Outros")}</div>` : ""; ultCat = p.categoria;
+        const n = L.cart[p.id] || 0;
+        return `${h}<div class="prod"><div class="pn"><b>${esc(p.nome)}</b><small>${brl(Math.round(p.preco * 100))}</small></div>
+          ${cfg.aberto ? `<div class="qty">${n ? `<button data-sub="${p.id}">−</button><span>${n}</span>` : ""}<button class="plus" data-add="${p.id}">+</button></div>` : ""}</div>`;
+      }).join("")}
+      ${cfg.whatsBar ? `<div style="text-align:center"><a class="zap" target="_blank" href="https://wa.me/${cfg.whatsBar}">💬 Falar com o bar no WhatsApp</a></div>` : ""}`;
+    $$("[data-cat]").forEach(b => b.onclick = () => { L.cat = b.dataset.cat; render(); });
+    $$("[data-add]").forEach(b => b.onclick = () => { L.cart[b.dataset.add] = (L.cart[b.dataset.add] || 0) + 1; render(); });
+    $$("[data-sub]").forEach(b => b.onclick = () => { const k = b.dataset.sub; L.cart[k]--; if (!L.cart[k]) delete L.cart[k]; render(); });
+    $("#verUlt")?.addEventListener("click", () => acompanhar(ult));
+  }
+
+  function checkout() {
+    const itens = itensCart();
+    if (!itens.length) { L.tela = "menu"; return render(); }
+    const ent = L.cfg.entrega !== false;
+    const pag = dados.pagamento || "Pix";
+    C.innerHTML = `<button class="voltar" id="volt">← Voltar ao cardápio</button>
+      <div class="com" style="margin-top:0"><h2>Seu pedido</h2>
+        ${itens.map(i => `<div class="lin"><span><span class="q">${i.qtd}x</span>${esc(i.nome)}</span>
+          <span class="qty"><button data-sub="${i.pid}">−</button><span>${i.qtd}</span><button class="plus" data-add="${i.pid}">+</button></span></div>`).join("")}
+      </div>
+      ${ent ? `<label>Como você quer receber?</label><div class="seg" id="segTipo">
+        <button data-t="retirada" class="${L.tipo === "retirada" ? "on" : ""}">🥡 Retirar no bar</button>
+        <button data-t="entrega" class="${L.tipo === "entrega" ? "on" : ""}">🛵 Entrega</button></div>` : ""}
+      <label>Seu nome *</label><input id="fNome" autocomplete="name" value="${esc(dados.nome || "")}">
+      <label>WhatsApp *</label><input id="fFone" inputmode="tel" autocomplete="tel" placeholder="(12) 99999-9999" value="${esc(dados.telefone || "")}">
+      ${L.tipo === "entrega" ? `<label>Endereço de entrega *</label><textarea id="fEnd" rows="2" placeholder="Rua, número, bairro, complemento">${esc(dados.endereco || "")}</textarea>` : ""}
+      <label>Pagamento</label><select id="fPag">${["Pix", "Dinheiro", "Cartão"].map(f => `<option ${f === pag ? "selected" : ""}>${f}</option>`).join("")}</select>
+      <div id="trocoBox" class="${pag === "Dinheiro" ? "" : "hidden"}"><label>Troco para quanto? (opcional)</label><input id="fTroco" inputmode="decimal" placeholder="Ex.: 100"></div>
+      <label>Observações (opcional)</label><textarea id="fObs" rows="2" placeholder="Ex.: sem cebola, ponto da carne…"></textarea>
+      <div class="com">
+        <div class="tot"><span>Subtotal</span><span>${brl(subtotal())}</span></div>
+        ${L.tipo === "entrega" ? `<div class="tot"><span>Taxa de entrega</span><span>${taxaEnt() ? brl(taxaEnt()) : "grátis"}</span></div>` : ""}
+        <div class="tot g"><span>Total</span><span>${brl(subtotal() + taxaEnt())}</span></div>
+      </div>
+      <p class="rod" style="text-align:center">O bar confirma o pedido antes de começar a preparar. Você acompanha tudo por esta página.</p>
+      <button class="btn" id="enviar" style="margin-top:14px">Enviar pedido · ${brl(subtotal() + taxaEnt())}</button>`;
+    const guardar = () => {
+      dados.nome = $("#fNome").value; dados.telefone = $("#fFone").value; dados.pagamento = $("#fPag").value;
+      if ($("#fEnd")) dados.endereco = $("#fEnd").value;
+    };
+    $("#volt").onclick = () => { guardar(); L.tela = "menu"; render(); };
+    $$("[data-add]").forEach(b => b.onclick = () => { guardar(); L.cart[b.dataset.add]++; render(); });
+    $$("[data-sub]").forEach(b => b.onclick = () => { guardar(); const k = b.dataset.sub; L.cart[k]--; if (!L.cart[k]) delete L.cart[k]; render(); });
+    $$("#segTipo button").forEach(b => b.onclick = () => { guardar(); L.tipo = b.dataset.t; render(); });
+    $("#fPag").onchange = () => $("#trocoBox").classList.toggle("hidden", $("#fPag").value !== "Dinheiro");
+    $("#enviar").onclick = enviar;
+  }
+
+  async function enviar() {
+    const nome = $("#fNome").value.trim(), fone = $("#fFone").value.replace(/\D/g, ""), endereco = $("#fEnd")?.value.trim() || "";
+    if (!nome) return alerta("Informe o seu nome");
+    if (fone.length < 10 || fone.length > 13) return alerta("Informe um WhatsApp com DDD");
+    if (L.tipo === "entrega" && endereco.length < 8) return alerta("Informe o endereço de entrega");
+    const espera = Math.ceil(ESPERA_PEDIDO - (Date.now() - (Number(ls.get("dlv_quando")) || 0)) / 1000);
+    if (espera > 0) return alerta(`Aguarde ${espera}s para enviar outro pedido`);
+    const pagamento = $("#fPag").value, trocoTxt = $("#fTroco")?.value.trim() || "";
+    const troco = pagamento === "Dinheiro" && trocoTxt ? Math.round((Number(trocoTxt.replace(/\./g, "").replace(",", ".")) || 0) * 100) : 0;
+    const itens = itensCart(), sub = subtotal(), taxa = taxaEnt();
+    const hoje = new Date(Date.now() - 6 * 3600e3), pad = n => String(n).padStart(2, "0");
+    const b = $("#enviar"); b.disabled = true; b.textContent = "Enviando…";
+    try {
+      const ref = await addDoc(collection(db, "bar_delivery"), {
+        nome: nome.slice(0, 60), telefone: fone, tipo: L.tipo, endereco: L.tipo === "entrega" ? endereco.slice(0, 200) : "",
+        pagamento, troco, obs: $("#fObs").value.trim().slice(0, 300), itens, subtotal: sub, taxaEntrega: taxa, total: sub + taxa,
+        status: "aguardando", ativo: true, criadoEm: serverTimestamp(), dia: `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`
+      });
+      Object.assign(dados, { nome, telefone: $("#fFone").value.trim(), pagamento, endereco: endereco || dados.endereco || "" });
+      ls.set("dlv_dados", JSON.stringify(dados)); ls.set("dlv_ultimo", ref.id); ls.set("dlv_quando", String(Date.now()));
+      L.cart = {}; acompanhar(ref.id);
+    } catch (e) {
+      console.error(e); b.disabled = false; b.textContent = "Enviar pedido";
+      alerta(e.code === "permission-denied" ? "O bar não está recebendo pedidos online agora." : "Não foi possível enviar. Verifique a internet e tente de novo.");
+    }
+  }
+  function alerta(t) { let a = $("#alertaL"); if (!a) { a = document.createElement("div"); a.id = "alertaL"; a.className = "aviso"; a.style.cssText = "position:fixed;left:16px;right:16px;bottom:90px;z-index:30;max-width:520px;margin:0 auto"; document.body.appendChild(a); } a.textContent = t; clearTimeout(a._t); a._t = setTimeout(() => a.remove(), 3500); }
+
+  function acompanhar(id) {
+    L.tela = "status"; L.pedidoId = id; $("#carrinho").classList.add("hidden");
+    const u = new URL(location.href); u.searchParams.set("p", id); history.replaceState(null, "", u.href);
+    L.unsubPed?.();
+    C.innerHTML = `<div class="vazio">Carregando o seu pedido…</div>`;
+    L.unsubPed = onSnapshot(doc(db, "bar_delivery", id), s => {
+      if (!s.exists()) { C.innerHTML = `<div class="vazio">Pedido não encontrado.</div><button class="btn ghost" id="novo">Fazer um pedido</button>`; $("#novo").onclick = novoPedido; return; }
+      statusTela(s.data());
+    }, e => { console.warn(e); C.innerHTML = `<div class="vazio">Não foi possível carregar o pedido.</div>`; });
+    window.scrollTo(0, 0);
+  }
+  function novoPedido() {
+    L.unsubPed?.(); L.unsubPed = null; L.pedidoId = null; L.tela = "menu";
+    const u = new URL(location.href); u.searchParams.delete("p"); history.replaceState(null, "", u.href);
+    render();
+  }
+  function statusTela(d) {
+    const ent = d.tipo === "entrega";
+    const passos = [["aguardando", "Pedido enviado"], ["preparando", "Confirmado e em preparo"], ["pronto", ent ? "Saiu para entrega" : "Pronto para retirada"], ["concluido", ent ? "Entregue" : "Retirado"]];
+    const ordem = passos.map(p => p[0]), at = ordem.indexOf(d.status);
+    const titulo = { aguardando: "⏳ Aguardando confirmação", preparando: "👨‍🍳 Em preparo", pronto: ent ? "🛵 Saiu para entrega" : "✅ Pronto para retirada", concluido: "🎉 Pedido concluído", recusado: "❌ Pedido não aceito", cancelado: "❌ Pedido cancelado" }[d.status] || "";
+    const falhou = ["recusado", "cancelado"].includes(d.status);
+    if (!falhou && d.status !== "concluido") ls.set("dlv_ultimo", L.pedidoId);
+    else if (ls.get("dlv_ultimo") === L.pedidoId) ls.set("dlv_ultimo", "");
+    C.innerHTML = `<div class="com" style="margin-top:0">
+        <div class="status-g">${titulo}</div>
+        <p class="vazio" style="padding:4px">${falhou ? esc(d.motivo || "Fale com o bar pelo WhatsApp para saber mais.") : d.status === "aguardando" ? "O bar vai confirmar o seu pedido em instantes." : ent ? "Entrega em: " + esc(d.endereco) : "Retire no balcão informando o seu nome: <b>" + esc(d.nome) + "</b>"}</p>
+        ${falhou ? "" : `<div class="etapas">${passos.map(([k, t], i) => `<div class="etapa ${i < at || d.status === "concluido" ? "feita" : i === at ? "agora" : ""}"><span class="b">${i < at || d.status === "concluido" ? "✓" : i + 1}</span>${t}</div>`).join("")}</div>`}
+      </div>
+      <div class="com"><h2>Resumo <small>${esc(d.nome)} · ${ent ? "entrega" : "retirada"}</small></h2>
+        ${(d.itens || []).map(i => `<div class="lin"><span><span class="q">${i.qtd}x</span>${esc(i.nome)}</span><span class="v">${brl(Math.round(i.preco * 100) * i.qtd)}</span></div>`).join("")}
+        ${d.taxaEntrega ? `<div class="tot" style="margin-top:8px"><span>Taxa de entrega</span><span>${brl(d.taxaEntrega)}</span></div>` : ""}
+        <div class="tot g"><span>Total</span><span>${brl(d.total)}</span></div>
+        <p class="rod">Pagamento: ${esc(d.pagamento)}${d.troco ? ` · troco para ${brl(d.troco)}` : ""}</p>
+      </div>
+      ${L.cfg?.whatsBar ? `<div style="text-align:center"><a class="zap" target="_blank" href="https://wa.me/${L.cfg.whatsBar}">💬 Falar com o bar no WhatsApp</a></div>` : ""}
+      <button class="btn ghost" id="novo" style="margin-top:18px">Fazer outro pedido</button>`;
+    $("#novo").onclick = novoPedido;
+  }
 }
 </script>
 </body>
