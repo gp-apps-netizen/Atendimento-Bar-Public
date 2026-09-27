@@ -56,7 +56,7 @@ button .i{font-size:1.7rem}
   </div>
   <div id="msg"></div>
   <div class="com" id="com"><h2>Comanda da mesa</h2><div class="vazio">Carregando…</div></div>
-  <p class="rod">A comanda atualiza sozinha a cada pedido. Os valores finais são confirmados no fechamento.</p>
+  <p class="rod">A comanda atualiza sozinha a cada pedido. Este link vale só enquanto a mesa estiver aberta.</p>
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -90,8 +90,9 @@ if (!mesaId || !token || !(numero > 0)) {
   const db = getFirestore(initializeApp(firebaseConfig));
   const chave = "chamado_" + mesaId;
   const ultimo = () => { try { return Number(localStorage.getItem(chave)) || 0; } catch (e) { return 0; } };
-  let timer;
+  let timer, encerrada = false;
   function travar() {
+    if (encerrada) return;
     const falta = Math.ceil(ESPERA - (Date.now() - ultimo()) / 1000);
     const bloqueado = falta > 0;
     $("#bGarcom").disabled = $("#bConta").disabled = bloqueado;
@@ -110,7 +111,7 @@ if (!mesaId || !token || !(numero > 0)) {
     } catch (e) {
       console.error(e);
       msg("erro", "Não conseguimos avisar", e.code === "permission-denied"
-        ? "Este QR Code não é mais válido. Chame o garçom pessoalmente e avise para trocar o código."
+        ? "Este link expirou (a mesa já foi fechada). Peça um novo link ao garçom."
         : "Verifique a internet do celular e tente de novo.");
       $("#bGarcom").disabled = $("#bConta").disabled = false;
     }
@@ -120,6 +121,12 @@ if (!mesaId || !token || !(numero > 0)) {
   const DIV = { itens: "por consumo", igual: "igual entre todos", unica: "conta única" };
   function comanda(d) {
     const box = $("#com");
+    if (d && d.status === "encerrada") {
+      encerrada = true; $("#bGarcom").disabled = $("#bConta").disabled = true; $(".acoes").style.display = "none"; $("#msg").style.display = "none";
+      $("#sub").textContent = "Esta comanda foi encerrada";
+      box.innerHTML = `<h2>Comanda encerrada</h2><div class="vazio">A mesa foi fechada${d.total ? ` · total ${brl(d.total)}` : ""}.<br>Obrigado pela visita! 🍻<br><br>Na próxima visita, peça um novo link ao garçom.</div>`;
+      return;
+    }
     if (!d || d.status === "livre" || !(d.itens || []).length) {
       box.innerHTML = `<h2>Comanda da mesa</h2><div class="vazio">${d && d.status !== "livre" ? "Nenhum pedido lançado ainda." : "Nenhum consumo nesta mesa no momento."}</div>`;
       return;
