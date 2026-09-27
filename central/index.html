@@ -127,6 +127,14 @@ table.t td.r,table.t th.r{text-align:right}
 .qr-tela{background:#fff;border-radius:14px;padding:10px;width:230px;height:230px;margin:14px auto 6px}.qr-tela svg{width:100%;height:100%;display:block}
 .chamado.link{background:#0f3a28;border-color:var(--ok)}
 .chamado.dlv{background:#2b2144;border-color:var(--prep)}
+.exp-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 11px;font-size:.8rem;font-weight:600;border:1px solid var(--bd);background:var(--s2);white-space:nowrap}
+.exp-pill.on{background:#0f3a28;border-color:var(--ok);color:#c9f5df}.exp-pill.off{background:#3a1616;border-color:#6b2a2a;color:#ffd0cf}
+.exp-faixa{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#3a1616;border:1px solid #6b2a2a;color:#ffd0cf;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:.9rem}
+.top{gap:8px}
+.brand{min-width:0;flex:1}.brand>div{min-width:0}
+.brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top>.row{flex:none;gap:6px}
+@media(max-width:420px){.top .icon-btn{width:34px;height:34px;font-size:.95rem}.brand .logo{width:32px;height:32px;font-size:17px}.exp-pill{padding:6px 9px;font-size:.75rem}}
 
 .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
 .kcol h3{margin-top:0;display:flex;justify-content:space-between}
@@ -160,6 +168,7 @@ table.t td.r,table.t th.r{text-align:right}
 <header class="top">
   <div class="brand"><span class="logo">🧾</span><div><b id="nomeBar">Central</b><small id="quem">Central de pedidos</small></div></div>
   <div class="row">
+    <button class="exp-pill hidden" id="btnExp" title="Expediente">…</button>
     <button class="icon-btn hidden" id="btnSom" title="Som dos novos pedidos">🔔</button>
     <button class="icon-btn hidden" id="btnTela" title="Manter tela ligada">🔅</button>
     <button class="icon-btn hidden" id="btnSair" title="Sair">⎋</button>
@@ -268,7 +277,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "1.7";
+const VERSAO = "1.9";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -648,6 +657,9 @@ function pendentesHtml(mesas) {
       <button class="btn ok sm" data-enviarlink="${m.id}">Enviar</button></div>`).join("")}</div>`;
 }
 
+/* ---------- Expediente ---------- */
+const expAberto = cfg => !!(cfg && cfg.expediente && cfg.expediente.aberto);
+
 
 instalarManifest({ nome: "Bar · Central", curto: "Central Bar", emoji: "🧾" });
 
@@ -664,7 +676,7 @@ onAuthStateChanged(auth, u => verificar(u));
 
 async function verificar(u) {
   S.unsub.forEach(f => f()); S.unsub = []; S.user = u; S.perfil = null; S.idsAnt = null; S.pendAnt = null; S.dlvAnt = null; S.delivery = []; S.produtosOk = S.publicoOk = false; S.chamados = []; S.cfgOk = S.mesasOk = S.pedidosOk = S.comandasOk = false; $("#chamadosBox").innerHTML = "";
-  ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u));
+  ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u)); $("#btnExp").classList.add("hidden");
   if (!u) return mostrar("login");
   const email = emailDe(u);
   let perfil = null;
@@ -673,6 +685,7 @@ async function verificar(u) {
   if (!ok) { $("#semEmail").textContent = email; $("#btnSom").classList.add("hidden"); $("#btnTela").classList.add("hidden"); return mostrar("semacesso"); }
   S.perfil = { nome: perfil?.nome || "Responsável", email, dono: email === DONO };
   $("#quem").textContent = S.perfil.nome + " · Central";
+  $("#btnExp").classList.remove("hidden");
   iniciar();
 }
 
@@ -737,9 +750,14 @@ setInterval(() => { if (["pedidos", "mesas"].includes(S.tela)) render(); }, 3000
 function render() {
   if (!S.perfil) return;
   sincronizarComandas(S);
+  const aberto = expAberto(S.cfg);
+  $("#btnExp").className = "exp-pill " + (aberto ? "on" : "off");
+  $("#btnExp").textContent = aberto ? "🟢 Aberto" : "🔴 Fechado";
+  const faixaExp = !aberto && S.cfgOk ? `<div class="exp-faixa"><span>🔴 <b>Expediente fechado</b> — o cardápio online mostra “Fechado” e não recebe pedidos.</span><button class="btn ok sm" data-abrirexp>Abrir</button></div>` : "";
   const aguard = (S.delivery || []).filter(x => x.status === "aguardando");
-  const box = $("#chamadosBox"); box.innerHTML = (aguard.length && S.tela !== "delivery" ? `<div class="chamados"><div class="chamado dlv"><div class="grow"><b>🛵 ${aguard.length} pedido(s) online aguardando</b><div class="small">${aguard.map(x => esc(x.nome)).join(", ")}</div></div><button class="btn sm" data-verdlv>Ver</button></div></div>` : "") + pendentesHtml(S.mesas) + chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
+  const box = $("#chamadosBox"); box.innerHTML = faixaExp + (aguard.length && S.tela !== "delivery" ? `<div class="chamados"><div class="chamado dlv"><div class="grow"><b>🛵 ${aguard.length} pedido(s) online aguardando</b><div class="small">${aguard.map(x => esc(x.nome)).join(", ")}</div></div><button class="btn sm" data-verdlv>Ver</button></div></div>` : "") + pendentesHtml(S.mesas) + chamadosHtml(S.chamados || [], S.mesas, ""); ligarAtender(box);
   $("[data-verdlv]", box)?.addEventListener("click", () => mostrar("delivery"));
+  $("[data-abrirexp]", box)?.addEventListener("click", modalExpediente);
   $$("[data-enviarlink]", box).forEach(b => b.onclick = () => { const m = S.mesas.find(x => x.id === b.dataset.enviarlink); if (m) enviarLinkWhats(m, S.cfg.nomeBar); });
   $$("[data-dispensar]", box).forEach(b => b.onclick = () => salvar(updateDoc(doc(db, C.mesas, b.dataset.dispensar), { linkPendente: false })));
   if (S.tela === "pedidos") renderPedidos();
@@ -1036,8 +1054,9 @@ function renderConfig() {
       <button class="btn ghost sm" id="cpC">Copiar link da central</button></div>
     <h3>Cardápio online (retirada e entrega)</h3>
     <div class="card">
-      <label class="switch"><span><b>Receber pedidos online</b><br><span class="small muted">Desligado, o cliente vê o cardápio mas não consegue pedir</span></span><input type="checkbox" id="cfDlvOn" ${S.cfg.deliveryAberto ? "checked" : ""}></label>
+      <label class="switch"><span><b>Receber pedidos online</b><br><span class="small muted">Os pedidos só entram com o expediente aberto (botão 🟢/🔴 no topo)</span></span><input type="checkbox" id="cfDlvOn" ${S.cfg.deliveryAberto ? "checked" : ""}></label>
       <label class="switch"><span>Fazer entregas <span class="small muted">(desligado = só retirada)</span></span><input type="checkbox" id="cfDlvEnt" ${S.cfg.fazEntrega !== false ? "checked" : ""}></label>
+      <label>Horário de funcionamento (aparece para o cliente)</label><input id="cfHorario" maxlength="80" placeholder="Ex.: Qua a Dom, das 18h à 0h" value="${esc(S.cfg.horario || "")}">
       <label>Taxa de entrega (R$)</label><input id="cfTxEnt" inputmode="decimal" placeholder="0,00" value="${S.cfg.taxaEntrega ? String(S.cfg.taxaEntrega).replace(".", ",") : ""}">
       <button class="btn block" id="cfDlvSalvar" style="margin-top:12px">Salvar</button>
       <div class="small muted" style="margin-top:14px">Link do cardápio (envie aos clientes)</div><div style="word-break:break-all;margin:4px 0 8px">${esc(linkCardapio())}</div>
@@ -1055,7 +1074,7 @@ function renderConfig() {
   $("#cfDlvSalvar").onclick = () => {
     const tx = parseNum($("#cfTxEnt").value);
     if (tx < 0 || tx > 200) return toast("Taxa de entrega inválida", "erro");
-    salvar(setDoc(doc(db, C.config, "geral"), { deliveryAberto: $("#cfDlvOn").checked, fazEntrega: $("#cfDlvEnt").checked, taxaEntrega: Math.round(tx * 100) / 100 }, { merge: true }), "Cardápio online atualizado");
+    salvar(setDoc(doc(db, C.config, "geral"), { deliveryAberto: $("#cfDlvOn").checked, fazEntrega: $("#cfDlvEnt").checked, taxaEntrega: Math.round(tx * 100) / 100, horario: $("#cfHorario").value.trim() }, { merge: true }), "Cardápio online atualizado");
   };
   $("#cpCard").onclick = () => copiar(linkCardapio());
   $("#zapCard").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(`🍺 Cardápio do ${S.cfg.nomeBar}\nFaça seu pedido para retirada${S.cfg.fazEntrega !== false ? " ou entrega" : ""} por aqui:\n${linkCardapio()}`), "_blank");
@@ -1069,13 +1088,64 @@ function renderConfig() {
   $("#cpG").onclick = () => copiar(urlG); $("#cpC").onclick = () => copiar(urlC);
 }
 
+/* ---------- Expediente: abrir / encerrar ---------- */
+$("#btnExp").onclick = () => modalExpediente();
+async function modalExpediente() {
+  const e = S.cfg.expediente || {};
+  if (!expAberto(S.cfg)) {
+    const md = abrirModal(`<div class="mh"><h2>Abrir expediente</h2><button class="icon-btn" data-fechar>✕</button></div>
+      <p class="muted">A partir de agora o bar aparece como <b>🟢 Aberto</b> no cardápio online${S.cfg.deliveryAberto ? " e os clientes já podem fazer pedidos de retirada e entrega" : " (os pedidos online estão desligados nas Configurações)"}.</p>
+      ${e.fechadoEm ? `<p class="small muted" style="margin-top:8px">Último expediente encerrado em ${fmtDia(hoje(tsDate(e.fechadoEm)))} às ${hora(e.fechadoEm)}${e.fechadoPor ? " por " + esc(e.fechadoPor) : ""}.</p>` : ""}
+      <button class="btn ok block" id="ok" style="margin-top:16px;padding:14px">🟢 Abrir expediente</button>`);
+    $("#ok", md.el).onclick = () => { salvar(setDoc(doc(db, C.config, "geral"), { expediente: { aberto: true, desde: serverTimestamp(), por: S.perfil.nome } }, { merge: true }), "Expediente aberto — bom trabalho! 🍻"); md.fechar(); };
+    return;
+  }
+  const desde = tsDate(e.desde) || new Date();
+  const md = abrirModal(`<div class="mh"><h2>Encerrar expediente</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="muted small">Aberto às ${hora(desde)} de ${fmtDia(hoje(desde))}${e.por ? " por " + esc(e.por) : ""} · ${duracao(desde)}</p>
+    <div id="expResumo"><div class="empty">Calculando o resumo…</div></div>
+    <button class="btn danger block" id="ok" style="margin-top:14px;padding:14px">🔴 Encerrar expediente</button>`);
+  const abertas = S.mesas.filter(m => (m.status || "livre") !== "livre");
+  const dlv = S.delivery || [];
+  let contas = [];
+  try {
+    const snap = await getDocs(query(col(C.contas), where("dia", ">=", diaOperacao(desde))));
+    contas = snap.docs.map(d => d.data()).filter(x => (tsDate(x.fechadaEm) || new Date()) >= desde);
+  } catch (err) { console.warn(err); }
+  const tot = contas.reduce((s, x) => s + cents(x.total), 0), online = contas.filter(x => String(x.mesaId || "").startsWith("dlv_"));
+  const formas = {}; contas.forEach(x => (x.pessoas || []).forEach(p => formas[p.forma] = (formas[p.forma] || 0) + cents(p.total)));
+  if (!md.aberto) return;
+  $("#expResumo", md.el).innerHTML = `
+    ${abertas.length ? `<div class="alerta">⚠️ ${abertas.length} mesa(s) ainda aberta(s): ${abertas.map(m => m.numero).join(", ")}. Elas continuam abertas depois de encerrar.</div>` : ""}
+    ${dlv.length ? `<div class="alerta">⚠️ ${dlv.length} pedido(s) online ainda em andamento na aba Online.</div>` : ""}
+    <div class="kpis" style="margin-top:6px">
+      <div class="kpi"><small>Faturamento</small><b>${brl(tot)}</b></div>
+      <div class="kpi"><small>Mesas fechadas</small><b>${contas.length - online.length}</b></div>
+      <div class="kpi"><small>Pedidos online</small><b>${online.length}</b></div>
+      <div class="kpi"><small>Serviço</small><b>${brl(contas.reduce((s, x) => s + cents(x.taxa), 0))}</b></div>
+    </div>
+    ${Object.keys(formas).length ? `<table class="t" style="margin-top:10px"><tbody>${Object.entries(formas).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<tr><td>${esc(f)}</td><td class="r">${brl(v)}</td></tr>`).join("")}</tbody></table>` : ""}
+    <p class="small muted" style="margin-top:10px">Ao encerrar, o cardápio online passa a mostrar <b>🔴 Fechado</b> e não aceita novos pedidos.</p>`;
+  $("#ok", md.el).onclick = () => {
+    const resumo = `*${S.cfg.nomeBar} — Expediente ${fmtDia(hoje(desde))}*\n${hora(desde)} às ${hora(new Date())}\nFaturamento: ${brl(tot)}\nMesas: ${contas.length - online.length} · Online: ${online.length}\n` + Object.entries(formas).map(([f, v]) => `${f}: ${brl(v)}`).join("\n");
+    salvar(setDoc(doc(db, C.config, "geral"), { expediente: { aberto: false, desde: null, fechadoEm: serverTimestamp(), fechadoPor: S.perfil.nome } }, { merge: true }), "Expediente encerrado");
+    md.fechar();
+    const m2 = abrirModal(`<div class="mh"><h2>Expediente encerrado</h2><button class="icon-btn" data-fechar>✕</button></div>
+      <p class="muted">Faturamento do expediente: <b style="color:var(--tx)">${brl(tot)}</b></p>
+      <div class="row" style="margin-top:14px"><button class="btn ghost grow" id="cpRes">Copiar resumo</button><button class="btn grow" data-fechar>OK</button></div>`);
+    $("#cpRes", m2.el).onclick = () => copiar(resumo);
+  };
+}
+
 /* ---------- Cardápio online: dados públicos + pedidos de retirada/entrega ---------- */
 function linkCardapio() { return new URL("../cliente/", location.href.split("#")[0].split("?")[0]).href; }
 let _pubPend = null;
 function sincronizarPublico() {
   if (!S.produtosOk || !S.publicoOk || !S.cfgOk) return;
   const dado = {
-    nomeBar: S.cfg.nomeBar || "Bar", whatsBar: S.cfg.whatsBar || "", aberto: !!S.cfg.deliveryAberto, entrega: S.cfg.fazEntrega !== false,
+    nomeBar: S.cfg.nomeBar || "Bar", whatsBar: S.cfg.whatsBar || "",
+    expediente: expAberto(S.cfg), online: !!S.cfg.deliveryAberto, aberto: expAberto(S.cfg) && !!S.cfg.deliveryAberto,
+    horario: S.cfg.horario || "", entrega: S.cfg.fazEntrega !== false,
     taxaEntrega: Math.round((S.cfg.taxaEntrega || 0) * 100),
     produtos: S.produtos.filter(p => p.ativo !== false).map(p => ({ id: p.id, nome: p.nome, categoria: p.categoria || "Outros", preco: p.preco }))
   };
@@ -1117,7 +1187,8 @@ function renderDelivery() {
   };
   const g = k => l.filter(d => d.status === k);
   $("#t-delivery").innerHTML = `
-    ${cfg.deliveryAberto ? `<div class="alerta" style="background:#0f3a28;border-color:var(--ok)">🟢 Recebendo pedidos online${cfg.fazEntrega !== false ? " · retirada e entrega" : " · só retirada"}</div>`
+    ${!expAberto(cfg) ? `<div class="alerta" style="background:#3a1616;border-color:#6b2a2a">🔴 Expediente fechado — o cliente vê “Fechado” e não consegue pedir. Abra pelo botão no topo.</div>`
+      : cfg.deliveryAberto ? `<div class="alerta" style="background:#0f3a28;border-color:var(--ok)">🟢 Recebendo pedidos online${cfg.fazEntrega !== false ? " · retirada e entrega" : " · só retirada"}</div>`
       : `<div class="alerta" style="background:#3a2f12;border-color:#6b5316">⏸️ Pedidos online desligados — ligue em Mais → Configurações → Cardápio online.</div>`}
     <div class="row" style="margin-bottom:6px"><button class="btn ghost sm grow" id="dlvCp">Copiar link do cardápio</button><button class="btn ok sm grow" id="dlvZap">Enviar pelo WhatsApp</button></div>
     <h3>Aguardando confirmação (${g("aguardando").length})</h3><div class="list">${g("aguardando").map(card).join("") || `<div class="empty">Nenhum pedido novo.</div>`}</div>
