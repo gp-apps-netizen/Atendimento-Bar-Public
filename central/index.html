@@ -192,6 +192,14 @@ table.t td.r,table.t th.r{text-align:right}
     </div>
   </section>
 
+  <section id="t-aviso" class="tela center hidden">
+    <div class="hero-ico" id="avIco">🔒</div>
+    <h2 id="avTit"></h2>
+    <p class="muted" id="avTxt"></p>
+    <div id="avExtra" style="width:100%;max-width:340px;text-align:left"></div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost" id="avTentar">Tentar de novo</button><button class="btn ghost" id="avTrocar">Trocar conta</button></div>
+  </section>
+
   <section id="t-semacesso" class="tela center hidden">
     <div class="hero-ico">🔒</div>
     <h2>Sem acesso à central</h2>
@@ -279,8 +287,8 @@ const firebaseConfig = {
   appId: "1:92179047707:web:08d82fc86c7da2f0215fbe",
   measurementId: "G-NT0H4GQ3V7"
 };
-const DONO = "godoygpx@gmail.com";   // responsável: acesso total ao garçom e à central
-const VERSAO = "2.0";
+let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
+const VERSAO = "3.0";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -296,7 +304,26 @@ let db;
 try { db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
 catch (e) { db = initializeFirestore(fbApp, {}); }
 
-const C = { garcons: "bar_garcons", produtos: "bar_produtos", mesas: "bar_mesas", clientes: "bar_clientes", pedidos: "bar_pedidos", contas: "bar_contas", config: "bar_config", chamados: "bar_chamados", comandas: "bar_comandas", publico: "bar_publico", delivery: "bar_delivery", fotos: "bar_fotos" };
+/* ---------- Vários estabelecimentos: cada bar fica em bares/{barId}/... ---------- */
+const SUPER = "godoygpx@gmail.com";   // administrador do sistema: acesso a todos os bares
+const NOMES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos"];
+let C = {}, BAR = null;
+function usarBar(b) {
+  BAR = b; DONO = String(b.donoEmail || SUPER).toLowerCase();
+  C = Object.fromEntries(NOMES.map(n => [n, `bares/${b.id}/${n}`]));
+}
+/* De qual bar é este login? (usuarios/{email}.barId). O administrador pode abrir outro bar com ?bar=ID */
+async function resolverBar(email) {
+  let id = email === SUPER ? new URLSearchParams(location.search).get("bar") : null;
+  if (!id) { const u = await getDoc(doc(db, "usuarios", email)); id = u.exists() ? u.data().barId : null; }
+  if (!id) return null;
+  const b = await getDoc(doc(db, "bares", id));
+  return b.exists() ? { id, ...b.data() } : null;
+}
+function aviso(ico, titulo, texto, extra = "") {
+  $("#avIco").textContent = ico; $("#avTit").textContent = titulo; $("#avTxt").innerHTML = texto; $("#avExtra").innerHTML = extra;
+  mostrar("aviso");
+}
 const col = n => collection(db, n);
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -412,7 +439,7 @@ function ligarLogin() {
   };
   $("#lgPrimeiro")?.addEventListener("click", async () => {
     const email = $("#lgEmail").value.trim().toLowerCase(), senha = $("#lgSenha").value;
-    if (email !== DONO) return toast("O primeiro acesso é só para o e-mail do responsável", "erro");
+    if (email !== SUPER) return toast("O primeiro acesso é só para o administrador. Responsáveis de bar recebem o login pronto.", "erro");
     if (senha.length < 6) return toast("Crie uma senha com pelo menos 6 caracteres", "erro");
     try { await createUserWithEmailAndPassword(auth, email, senha); toast("Conta do responsável criada!", "ok"); }
     catch (e) { toast(msgErro(e), "erro"); }
@@ -594,7 +621,7 @@ function qrSvg(txt) {
 }
 function linkCliente(m) {
   const u = new URL("../cliente/", location.href.split("#")[0].split("?")[0]);
-  u.searchParams.set("m", m.id); u.searchParams.set("n", m.numero); u.searchParams.set("t", m.token);
+  u.searchParams.set("b", BAR.id); u.searchParams.set("m", m.id); u.searchParams.set("n", m.numero); u.searchParams.set("t", m.token);
   return u.href;
 }
 const soDigitos = s => String(s || "").replace(/\D/g, "");
@@ -691,6 +718,8 @@ try { S.som = localStorage.getItem("bar_som") !== "0"; } catch (e) { }
 /* ---------- Login ---------- */
 ligarLogin();
 $("#btnTrocar").onclick = () => signOut(auth);
+$("#avTrocar").onclick = () => signOut(auth);
+$("#avTentar").onclick = () => verificar(S.user);
 $("#btnTentar").onclick = () => verificar(S.user);
 $("#btnSair").onclick = async () => { if (await confirmar("Sair da conta neste aparelho?", "Sair")) signOut(auth); };
 onAuthStateChanged(auth, u => verificar(u));
@@ -700,11 +729,16 @@ async function verificar(u) {
   ["#btnSair", "#btnSom", "#btnTela"].forEach(s => $(s).classList.toggle("hidden", !u)); $("#btnExp").classList.add("hidden");
   if (!u) return mostrar("login");
   const email = emailDe(u);
+  let bar = null;
+  try { bar = await resolverBar(email); } catch (e) { console.warn(e); }
+  if (!bar) { if (email === SUPER) return telaMigracao(); return aviso("🔒", "Login sem estabelecimento", `O e-mail <b>${esc(email)}</b> não está vinculado a nenhum bar. Peça ao responsável para cadastrar você na equipe.`); }
+  if (bar.status !== "ativo" && email !== SUPER) return aviso("⛔", "Acesso suspenso", `O acesso de <b>${esc(bar.nome || "este estabelecimento")}</b> está suspenso. Fale com o suporte para regularizar.`);
+  usarBar(bar);
   let perfil = null;
   try { const d = await getDoc(doc(db, C.garcons, email)); if (d.exists()) perfil = d.data(); } catch (e) { console.warn(e); }
-  const ok = email === DONO || (perfil && perfil.ativo !== false && perfil.central === true);
+  const ok = email === DONO || email === SUPER || (perfil && perfil.ativo !== false && perfil.central === true);
   if (!ok) { $("#semEmail").textContent = email; $("#btnSom").classList.add("hidden"); $("#btnTela").classList.add("hidden"); return mostrar("semacesso"); }
-  S.perfil = { nome: perfil?.nome || "Responsável", email, dono: email === DONO };
+  S.perfil = { nome: perfil?.nome || (email === SUPER && email !== DONO ? "Administrador" : "Responsável"), email, dono: email === DONO || email === SUPER };
   $("#quem").textContent = S.perfil.nome + " · Central";
   $("#btnExp").classList.remove("hidden");
   iniciar();
@@ -745,12 +779,61 @@ function iniciar() {
   mostrar("pedidos");
 }
 
+/* ---------- Migração única: bar_* (formato antigo) → bares/{barId}/... ---------- */
+const slug = s => norm(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
+async function telaMigracao() {
+  let nomeAtual = "";
+  try { const g = await getDoc(doc(db, "bar_config", "geral")); nomeAtual = g.exists() ? (g.data().nomeBar || "") : ""; } catch (e) { console.warn(e); }
+  aviso("🚚", "Configurar o primeiro bar", "O app agora aceita vários estabelecimentos. Os dados atuais serão copiados para o seu bar. O formato antigo não é apagado.", `
+    <label>Nome do bar</label><input id="mgNome" value="${esc(nomeAtual)}">
+    <label>Identificador (vai no link dos clientes)</label><input id="mgId" autocapitalize="off" value="${esc(slug(nomeAtual) || "meu-bar")}">
+    <p class="small muted" style="margin-top:6px">Só letras minúsculas, números e hífen. Não dá para trocar depois.</p>
+    <p class="small" id="mgInfo" style="margin-top:6px"></p>
+    <button class="btn block" id="mgIr" style="margin-top:10px">Migrar dados</button>`);
+  let mexeu = false;
+  $("#mgId").oninput = () => { mexeu = true; };
+  $("#mgNome").oninput = () => { if (!mexeu) $("#mgId").value = slug($("#mgNome").value); };
+  $("#mgIr").onclick = async () => {
+    const nome = $("#mgNome").value.trim(), id = $("#mgId").value.trim();
+    if (!nome) return toast("Informe o nome do bar", "erro");
+    if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return toast("Identificador: 3 a 30 caracteres, só a-z, 0-9 e hífen", "erro");
+    if (!await confirmar(`Copiar todos os dados para o bar “${nome}” (${id})?`, "Migrar")) return;
+    const b = $("#mgIr"), info = s => { $("#mgInfo").textContent = s; };
+    b.disabled = true; b.textContent = "Migrando…";
+    try { const n = await migrarDados(id, nome, info); toast(`Pronto! ${n} registros copiados`, "ok"); verificar(S.user); }
+    catch (e) { console.error(e); info(""); b.disabled = false; b.textContent = "Migrar dados"; toast("Falhou: " + (e.code || e.message), "erro"); }
+  };
+}
+async function migrarDados(barId, nome, info) {
+  const ex = await getDoc(doc(db, "bares", barId));
+  if (ex.exists() && ex.data().donoEmail !== SUPER) throw new Error("já existe outro bar com esse identificador");
+  await setDoc(doc(db, "bares", barId), { nome, donoEmail: SUPER, status: "ativo", plano: "proprio", criadoEm: serverTimestamp() }, { merge: true });
+  let total = 0;
+  for (const n of NOMES) {
+    info(`Copiando ${n}…`);
+    const snap = await getDocs(collection(db, "bar_" + n));
+    let bt = writeBatch(db), qtd = 0, tam = 0;
+    const enviar = async () => { if (qtd) await bt.commit(); bt = writeBatch(db); qtd = 0; tam = 0; };
+    for (const d of snap.docs) {
+      const dado = d.data(), t = JSON.stringify(dado).length;
+      if (qtd >= 400 || tam + t > 6e6) await enviar();
+      bt.set(doc(db, `bares/${barId}/${n}`, d.id), dado); qtd++; tam += t; total++;
+      if (n === "garcons" && d.id !== SUPER) { bt.set(doc(db, "usuarios", d.id), { barId }); qtd++; }
+    }
+    await enviar();
+  }
+  info("Finalizando…");
+  await setDoc(doc(db, "sistema", "padrao"), { barId });   // links antigos (sem ?b=) caem neste bar
+  await setDoc(doc(db, "usuarios", SUPER), { barId });
+  return total;
+}
+
 /* ---------- Navegação / topo ---------- */
 function mostrar(t) {
   S.cfgRedesenhar = true;
   S.tela = t;
   $$(".tela").forEach(e => e.classList.add("hidden")); $("#t-" + t).classList.remove("hidden");
-  $("#tabs").classList.toggle("hidden", ["login", "semacesso"].includes(t));
+  $("#tabs").classList.toggle("hidden", ["login", "semacesso", "aviso"].includes(t));
   $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   if (t === "relatorio" && !S.rel) { atalho("hoje"); }
   render(); window.scrollTo(0, 0);
@@ -1194,13 +1277,20 @@ function editarGarcom(g) {
         toast("Este e-mail já tinha login — mantida a senha antiga");
       }
     }
+    if (email !== DONO) {
+      try { await setDoc(doc(db, "usuarios", email), { barId: BAR.id }); }
+      catch (e) {
+        const bt = $("#ok", md.el); bt.disabled = false; bt.textContent = "Salvar";
+        return toast(e.code === "permission-denied" ? "Este e-mail já está vinculado a outro estabelecimento" : "Erro: " + (e.code || e.message), "erro");
+      }
+    }
     salvar(setDoc(doc(db, C.garcons, email), perfil, { merge: true }), g ? "Equipe atualizada" : `Login criado: ${email}`); md.fechar();
   };
   $("#rs", md.el)?.addEventListener("click", async () => {
     try { await resetarSenha(g.id); toast("E-mail de redefinição enviado para " + g.id, "ok"); } catch (e) { toast(msgErro(e), "erro"); }
   });
   $("#del", md.el)?.addEventListener("click", async () => {
-    if (await confirmar(`Remover ${g.nome} da equipe? O login dele deixa de funcionar no app.`, "Remover", true)) { salvar(deleteDoc(doc(db, C.garcons, g.id)), "Removido"); md.fechar(); }
+    if (await confirmar(`Remover ${g.nome} da equipe? O login dele deixa de funcionar no app.`, "Remover", true)) { const bt = writeBatch(db); bt.delete(doc(db, C.garcons, g.id)); if (g.id !== DONO) bt.delete(doc(db, "usuarios", g.id)); salvar(bt.commit(), "Removido"); md.fechar(); }
   });
 }
 function renderConfig() {
@@ -1302,7 +1392,7 @@ async function modalExpediente() {
 }
 
 /* ---------- Cardápio online: dados públicos + pedidos de retirada/entrega ---------- */
-function linkCardapio() { return new URL("../cliente/", location.href.split("#")[0].split("?")[0]).href; }
+function linkCardapio() { const u = new URL("../cliente/", location.href.split("#")[0].split("?")[0]); u.searchParams.set("b", BAR.id); return u.href; }
 let _pubPend = null;
 function sincronizarPublico() {
   if (!S.produtosOk || !S.publicoOk || !S.cfgOk) return;
