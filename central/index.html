@@ -293,7 +293,7 @@ html.claro .exp-pill.off,html.claro .exp-faixa{background:#fdeaea;border-color:#
   </section>
 
   <section id="t-cardapio" class="tela hidden">
-    <div class="row" style="margin-bottom:12px"><input id="buscaProd" placeholder="Buscar produto…" class="grow"><button class="btn ghost" id="imprimirMenu" title="Cardápio para imprimir">🖨️</button><button class="btn" id="novoProd">＋ Produto</button></div>
+    <div class="row" style="margin-bottom:12px"><input id="buscaProd" placeholder="Buscar produto…" class="grow"><button class="btn ghost" id="imprimirMenu" title="Cardápio para imprimir">🖨️</button><button class="btn ghost" id="btnEstoque" title="Estoque">📦<span id="estAlerta" class="badge st-canc hidden" style="margin-left:4px"></span></button><button class="btn" id="novoProd">＋ Produto</button></div>
     <div id="listaProd"></div>
   </section>
 
@@ -325,7 +325,7 @@ html.claro .exp-pill.off,html.claro .exp-faixa{background:#fdeaea;border-color:#
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, inMemoryPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch, runTransaction, increment, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ================= CONFIGURAÇÃO =================
    Cole aqui o firebaseConfig do projeto "atendimento-bar"
@@ -341,7 +341,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.6";
+const VERSAO = "3.7";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -359,7 +359,7 @@ catch (e) { db = initializeFirestore(fbApp, {}); }
 
 /* ---------- Vários estabelecimentos: cada bar fica em bares/{barId}/... ---------- */
 const SUPER = "godoygpx@gmail.com";   // administrador do sistema: acesso a todos os bares
-const NOMES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos"];
+const NOMES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos", "estoque"];
 let C = {}, BAR = null;
 function usarBar(b) {
   BAR = b; DONO = String(b.donoEmail || SUPER).toLowerCase();
@@ -854,7 +854,7 @@ function iniciar() {
     S.idsAnt = new Set(peds.map(p => p.id));
     S.pedidos = peds; S.pedidosOk = true; render();
   }, erroSnap));
-  S.unsub.push(onSnapshot(col(C.produtos), s => { S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome)); S.produtosOk = true; render(); }, erroSnap));
+  S.unsub.push(onSnapshot(col(C.produtos), s => { S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome)); S.produtosOk = true; alertaEstoque(); S.estRedesenha?.(); render(); }, erroSnap));
   S.fotos = {}; S.unsub.push(onSnapshot(col(C.fotos), s => { S.fotos = Object.fromEntries(s.docs.map(d => [d.id, d.data().foto])); if (S.tela === "cardapio") renderCardapio(); }, e => console.warn("fotos", e)));
   S.unsub.push(onSnapshot(doc(db, C.publico, "cardapio"), d => { S.publico = d.exists() ? d.data() : {}; S.publicoOk = true; render(); }, e => console.warn("publico", e)));
   S.unsub.push(onSnapshot(query(col(C.delivery), where("ativo", "==", true)), s => {
@@ -1003,8 +1003,11 @@ function renderPedidos() {
   $$("[data-canc]").forEach(b => b.onclick = async () => {
     const pb = ehBalcaoPed(S.pedidos.find(x => x.id === b.dataset.canc));
     const msg = pb ? "Tirar este pedido da fila? A venda do balcão continua registrada. Para estornar, use o Relatório." : "Cancelar este pedido? Ele sai da conta da mesa.";
-    if (await confirmar(msg, pb ? "Tirar da fila" : "Cancelar pedido", true))
-      salvar(updateDoc(doc(db, C.pedidos, b.dataset.canc), { status: "cancelado", canceladoPor: S.perfil.nome, ...(pb ? { aberto: false } : {}) }), pb ? "Retirado da fila" : "Pedido cancelado");
+    if (!await confirmar(msg, pb ? "Tirar da fila" : "Cancelar pedido", true)) return;
+    const pe = S.pedidos.find(x => x.id === b.dataset.canc), bt = writeBatch(db);
+    if (!pb && pe?.baixaEstoque && pe.status !== "cancelado") movEstoque(bt, pe.itens, +1);
+    bt.update(doc(db, C.pedidos, b.dataset.canc), { status: "cancelado", canceladoPor: S.perfil.nome, ...(pb ? { aberto: false } : {}) });
+    salvar(bt.commit(), pb ? "Retirado da fila" : "Pedido cancelado");
   });
 }
 
@@ -1041,7 +1044,7 @@ function vendaBalcao() {
     $$("[data-cat]", el).forEach(x => x.onclick = () => { V.cat = x.dataset.cat; lista(); });
     $("#blLista", el).innerHTML = l.map(p => {
       const q = V.cart[p.id] || 0;
-      return `<div class="bl-it ${q ? "sel" : ""}" data-add="${p.id}"><div class="nm"><b>${esc(p.nome)}</b><small>${brlR(p.preco)}</small></div>
+      return `<div class="bl-it ${q ? "sel" : ""}" data-add="${p.id}"><div class="nm"><b>${esc(p.nome)}</b><small>${brlR(p.preco)} ${seloEstoque(p)}</small></div>
         ${q ? `<div class="bl-q"><button data-menos="${p.id}">−</button><span>${q}</span><button data-mais="${p.id}">+</button></div>` : `<span class="muted" style="font-size:1.3rem">+</span>`}</div>`;
     }).join("") || `<div class="empty">${S.produtos.length ? "Nenhum produto encontrado." : "Cadastre produtos na aba Cardápio."}</div>`;
     $$("[data-add]", el).forEach(x => x.onclick = e => {
@@ -1076,13 +1079,14 @@ function vendaBalcao() {
     const rec = V.forma === "Dinheiro" ? cents(parseNum($("#blRec", el).value)) : 0;
     const bt = $("#blOk", el); bt.disabled = true; bt.textContent = "Registrando…";
     const b = writeBatch(db);
+    const baixa = movEstoque(b, itens, -1);
     b.set(doc(col(C.contas)), {
-      mesaId: "balcao", origem: "balcao", mesaNumero: 0, mesaNome: "", rotulo, sessao,
+      mesaId: "balcao", origem: "balcao", baixaEstoque: baixa, mesaNumero: 0, mesaNome: "", rotulo, sessao,
       abertaEm: serverTimestamp(), fechadaEm: serverTimestamp(), dia: diaOperacao(),
       garcomEmail: "balcao", garcomNome: "Balcão", fechadoPor: S.perfil.nome,
       divisao: "unica", pct: 0, subtotal: tot / 100, taxa: 0, total: tot / 100, qtdPessoas: 1,
       pessoas: [{ nome: nome || "Cliente do balcão", clienteId: null, subtotal: tot / 100, taxa: 0, total: tot / 100, forma: V.forma }],
-      itens: itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100, custo: custoAtual(i.pid, i.nome) })),
+      itens: itens.map(i => ({ pid: i.pid, nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100, custo: custoAtual(i.pid, i.nome) })),
       ...(rec >= tot && rec ? { recebido: rec / 100, troco: (rec - tot) / 100 } : {})
     });
     if (V.preparo) b.set(doc(col(C.pedidos)), {
@@ -1241,12 +1245,100 @@ function renderCardapio() {
   $("#listaProd").innerHTML = `<div class="list">${lista.map(p => {
     const h = p.categoria !== ult ? `<h3>${esc(p.categoria || "Outros")}</h3>` : ""; ult = p.categoria;
     const f = (S.fotos || {})[p.id];
-    return `${h}<div class="prodrow ${p.ativo === false ? "off" : ""}">${f ? `<img class="thumb" src="${f}" alt="">` : `<span class="thumb">📷</span>`}<button class="pn" data-ed="${p.id}"><b>${esc(p.nome)}</b><br><small class="muted">${brlR(p.preco)}${Number(p.custo) > 0 ? ` · custo ${brlR(p.custo)} · ${margemTxt(p.preco, p.custo)}` : ""}${p.ativo === false ? " · esgotado" : ""}${p.desc ? " · " + esc(p.desc) : ""}</small></button>
+    return `${h}<div class="prodrow ${p.ativo === false ? "off" : ""}">${f ? `<img class="thumb" src="${f}" alt="">` : `<span class="thumb">📷</span>`}<button class="pn" data-ed="${p.id}"><b>${esc(p.nome)}</b><br><small class="muted">${brlR(p.preco)}${Number(p.custo) > 0 ? ` · custo ${brlR(p.custo)} · ${margemTxt(p.preco, p.custo)}` : ""}${p.controlaEstoque ? ` · <b style="color:${qtdEstoque(p) <= 0 ? "var(--er)" : qtdEstoque(p) <= (Number(p.estoqueMin) || 0) ? "var(--ac2)" : "var(--ok)"}">${qtdEstoque(p)} em estoque</b>` : ""}${p.ativo === false ? " · esgotado" : ""}${p.desc ? " · " + esc(p.desc) : ""}</small></button>
       <label class="switch" style="padding:0" title="Disponível"><input type="checkbox" data-at="${p.id}" ${p.ativo !== false ? "checked" : ""}></label></div>`;
   }).join("") || `<div class="empty">Nada encontrado.</div>`}</div>`;
   $$("[data-ed]").forEach(x => x.onclick = () => editarProduto(S.produtos.find(p => p.id === x.dataset.ed)));
   $$("[data-at]").forEach(x => x.onchange = () => salvar(updateDoc(doc(db, C.produtos, x.dataset.at), { ativo: x.checked }), x.checked ? "Disponível" : "Marcado como esgotado"));
 }
+
+/* ---------- Estoque: baixa/devolução dentro do mesmo batch do pedido ---------- */
+function movEstoque(b, itens, sinal) {           // sinal: -1 dá baixa, +1 devolve
+  const soma = {};
+  (itens || []).forEach(i => { const p = S.produtos.find(x => x.id === i.pid) || (S.todosProdutos || []).find(x => x.id === i.pid); if (p && p.controlaEstoque) soma[p.id] = (soma[p.id] || 0) + (Number(i.qtd) || 1); });
+  Object.entries(soma).forEach(([id, q]) => b.update(doc(db, C.produtos, id), { estoque: increment(sinal * q) }));
+  return Object.keys(soma).length > 0;
+}
+const qtdEstoque = p => Number(p?.estoque) || 0;
+function seloEstoque(p) {
+  if (!p?.controlaEstoque) return "";
+  const q = qtdEstoque(p), min = Number(p.estoqueMin) || 0;
+  if (q <= 0) return `<span class="badge st-canc">sem estoque</span>`;
+  if (q <= Math.max(min, 3)) return `<span class="badge st-rec">restam ${q}</span>`;
+  return "";
+}
+
+/* ---------- Tela de estoque ---------- */
+function alertaEstoque() {
+  const n = S.produtos.filter(p => p.controlaEstoque && qtdEstoque(p) <= (Number(p.estoqueMin) || 0)).length;
+  const el = $("#estAlerta"); if (el) { el.textContent = n; el.classList.toggle("hidden", !n); }
+  return n;
+}
+function telaEstoque() {
+  const md = abrirModal(`<div class="mh"><h2>📦 Estoque</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <div class="seg" id="estSeg"><button data-v="lista" class="on">Produtos</button><button data-v="hist">Movimentações</button></div>
+    <div id="estCorpo" style="margin-top:10px"></div>`, { classe: "grande" });
+  let aba = "lista";
+  const corpo = async () => {
+    const box = $("#estCorpo", md.el); if (!box) return;
+    if (aba === "lista") {
+      const ctrl = S.produtos.filter(p => p.controlaEstoque).sort((a, b) => (qtdEstoque(a) - (Number(a.estoqueMin) || 0)) - (qtdEstoque(b) - (Number(b.estoqueMin) || 0)) || a.nome.localeCompare(b.nome));
+      const baixos = ctrl.filter(p => qtdEstoque(p) <= (Number(p.estoqueMin) || 0));
+      const valor = ctrl.reduce((s, p) => s + Math.max(0, qtdEstoque(p)) * cents(p.custo || 0), 0);
+      box.innerHTML = ctrl.length ? `
+        <div class="kpis"><div class="kpi"><small>Produtos controlados</small><b>${ctrl.length}</b></div>
+          <div class="kpi"><small>Abaixo do mínimo</small><b style="color:${baixos.length ? "var(--er)" : "var(--ok)"}">${baixos.length}</b></div>
+          ${valor ? `<div class="kpi"><small>Valor em estoque (custo)</small><b>${brl(valor)}</b></div>` : ""}</div>
+        <div class="list" style="margin-top:10px">${ctrl.map(p => {
+          const q = qtdEstoque(p), min = Number(p.estoqueMin) || 0, cor = q <= 0 ? "var(--er)" : q <= min ? "var(--ac2)" : "var(--ok)";
+          return `<div class="card"><div class="row between"><div style="min-width:0"><b>${esc(p.nome)}</b><div class="small muted">${esc(p.categoria || "")}${min ? ` · mínimo ${min}` : ""}${p.ativo === false ? " · marcado como esgotado" : ""}</div></div>
+            <div style="text-align:right"><div class="num" style="font-size:1.4rem;font-weight:700;color:${cor}">${q}</div><div class="small muted">${q <= 0 ? "sem estoque" : q <= min ? "repor" : "ok"}</div></div></div>
+            <div class="row" style="margin-top:8px"><button class="btn ok sm grow" data-ent="${p.id}">＋ Entrada</button><button class="btn ghost sm grow" data-aj="${p.id}">Contagem</button></div></div>`;
+        }).join("")}</div>
+        ${S.produtos.some(p => !p.controlaEstoque) ? `<p class="small muted" style="margin-top:10px">Para controlar outro produto: Cardápio → toque no produto → ligue “Controlar estoque”.</p>` : ""}`
+        : `<div class="empty">Nenhum produto com estoque controlado.<br><span class="small">Cardápio → toque no produto → ligue “Controlar estoque”.</span></div>`;
+      $$("[data-ent]", box).forEach(b => b.onclick = () => movManual(S.produtos.find(p => p.id === b.dataset.ent), "entrada", corpo));
+      $$("[data-aj]", box).forEach(b => b.onclick = () => movManual(S.produtos.find(p => p.id === b.dataset.aj), "ajuste", corpo));
+    } else {
+      box.innerHTML = `<div class="empty">Carregando…</div>`;
+      try {
+        const s = await getDocs(query(col(C.estoque), orderBy("em", "desc"), limit(60)));
+        const L = { entrada: ["＋ Entrada", "var(--ok)"], ajuste: ["Contagem", "var(--info)"], inicio: ["Estoque inicial", "var(--mu)"] };
+        box.innerHTML = s.docs.map(d => d.data()).map(m => `<div class="card"><div class="row between"><b>${esc(m.nome)}</b><span class="small" style="color:${(L[m.tipo] || [])[1]}">${(L[m.tipo] || [m.tipo])[0]}</span></div>
+          <div class="small muted">${m.tipo === "entrada" ? `+${m.qtd}${m.custo ? ` · custo ${brlR(m.custo)}` : ""}` : `${m.de ?? "—"} → ${m.para}`}${m.obs ? " · " + esc(m.obs) : ""} · ${esc(m.por || "")} · ${fmtDia(hoje(tsDate(m.em) || new Date()))} ${hora(m.em)}</div></div>`).join("")
+          || `<div class="empty">Nenhuma movimentação registrada ainda.</div>`;
+      } catch (e) { box.innerHTML = `<div class="empty">Não foi possível carregar.${e.code === "permission-denied" ? "<br><span class='small'>Atualize as regras do Firestore (coleção estoque).</span>" : ""}</div>`; }
+    }
+  };
+  $$("#estSeg button", md.el).forEach(b => b.onclick = () => { aba = b.dataset.v; $$("#estSeg button", md.el).forEach(x => x.classList.toggle("on", x === b)); corpo(); });
+  S.estRedesenha = () => { if (aba === "lista") corpo(); };
+  corpo();
+}
+function movManual(p, tipo, depois) {
+  if (!p) return;
+  const q = qtdEstoque(p), ent = tipo === "entrada";
+  const md = abrirModal(`<div class="mh"><h2>${ent ? "Entrada" : "Contagem"} · ${esc(p.nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="small muted">Em estoque agora: <b>${q}</b></p>
+    <label>${ent ? "Quantidade que chegou" : "Quantidade contada (fica valendo esta)"}</label><input id="mq" inputmode="decimal" placeholder="${ent ? "Ex.: 24" : q}">
+    ${ent ? `<label>Custo unitário desta compra (opcional)</label><input id="mc" inputmode="decimal" placeholder="${p.custo ? String(p.custo).replace(".", ",") : "0,00"}">
+      <label class="switch"><span>Atualizar o custo do produto</span><input type="checkbox" id="mcu" checked></label>` : ""}
+    <label>Observação (opcional)</label><input id="mo" maxlength="80" placeholder="${ent ? "Ex.: fornecedor, nota" : "Ex.: quebra, consumo interno"}">
+    <button class="btn ${ent ? "ok" : ""} block" id="mok" style="margin-top:14px">${ent ? "Registrar entrada" : "Salvar contagem"}</button>`);
+  setTimeout(() => $("#mq", md.el)?.focus(), 60);
+  $("#mok", md.el).onclick = async () => {
+    const v = parseNum($("#mq", md.el).value), obs = $("#mo", md.el).value.trim();
+    if (ent ? !(v > 0) : ($("#mq", md.el).value.trim() === "" || v < 0)) return toast("Informe a quantidade", "erro");
+    const bt = writeBatch(db), ref = doc(db, C.produtos, p.id);
+    const cu = ent ? parseNum($("#mc", md.el).value) : 0;
+    if (ent) bt.update(ref, { estoque: increment(v), ...(cu > 0 && $("#mcu", md.el).checked ? { custo: Math.round(cu * 100) / 100 } : {}) });
+    else bt.update(ref, { estoque: v });
+    bt.set(doc(col(C.estoque)), { tipo, pid: p.id, nome: p.nome, qtd: ent ? v : v - q, ...(ent ? {} : { de: q, para: v }), ...(cu > 0 ? { custo: cu } : {}), obs, por: S.perfil.nome, em: serverTimestamp() });
+    try { await bt.commit(); toast(ent ? `+${v} ${p.nome}` : `Estoque de ${p.nome}: ${v}`, "ok"); md.fechar(); }
+    catch (e) { erroSnap(e); }
+  };
+}
+$("#btnEstoque").onclick = () => telaEstoque();
+
 /* ---------- Custo dos produtos (só a central vê) ---------- */
 function custoAtual(pid, nome) {
   const p = (pid && S.produtos.find(x => x.id === pid)) || S.produtos.find(x => x.nome === nome);
@@ -1277,6 +1369,11 @@ function editarProduto(p) {
       <div class="grow"><label>Custo (R$) <span class="muted">opcional</span></label><input id="pcu" inputmode="decimal" value="${p && Number(p.custo) > 0 ? String(p.custo).replace(".", ",") : ""}" placeholder="0,00"></div>
     </div>
     <div class="small" id="pMarg" style="margin-top:6px;min-height:1.2em"></div>
+    <label class="switch"><span>Controlar estoque</span><input type="checkbox" id="pce" ${p?.controlaEstoque ? "checked" : ""}></label>
+    <div id="pEstBox" class="${p?.controlaEstoque ? "" : "hidden"}"><div class="row" style="gap:10px">
+      <div class="grow"><label>Quantidade em estoque</label><input id="pqe" inputmode="decimal" value="${p?.controlaEstoque ? qtdEstoque(p) : ""}" placeholder="0"></div>
+      <div class="grow"><label>Avisar quando chegar a</label><input id="pqm" inputmode="decimal" value="${p?.estoqueMin ?? ""}" placeholder="Ex.: 10"></div></div>
+      <p class="small muted" style="margin-top:6px">Cada item lançado dá baixa sozinho, e o cancelamento devolve. Sem estoque, o item some do cardápio online. Para registrar compras, use 📦 Estoque.</p></div>
     <label class="switch"><span>Disponível</span><input type="checkbox" id="pa" ${p?.ativo === false ? "" : "checked"}></label>
     <div class="row" style="margin-top:12px">${p ? `<button class="btn danger" id="del">Excluir</button>` : ""}<button class="btn grow" id="ok">Salvar</button></div>`);
   const desenha = () => {
@@ -1290,6 +1387,7 @@ function editarProduto(p) {
     if (!(pr > 0)) { el.textContent = ""; return; }
     const m = pr - cu; el.innerHTML = `Lucro por unidade: <b style="color:${m >= 0 ? "var(--ok)" : "var(--er)"}">${brlR(m)}</b> · margem <b>${Math.round(m / pr * 100)}%</b>`;
   };
+  $("#pce", md.el).onchange = e => $("#pEstBox", md.el).classList.toggle("hidden", !e.target.checked);
   $("#pp", md.el).addEventListener("input", marg); $("#pcu", md.el).addEventListener("input", marg); marg();
   $("#fEsc", md.el).onclick = () => $("#fArq", md.el).click();
   $("#fArq", md.el).onchange = async e => {
@@ -1302,9 +1400,17 @@ function editarProduto(p) {
   $("#ok", md.el).onclick = () => {
     const d = { nome: $("#pn", md.el).value.trim(), desc: $("#pd", md.el).value.trim(), categoria: $("#pc", md.el).value.trim() || "Outros", preco: Math.round(parseNum($("#pp", md.el).value) * 100) / 100, custo: Math.round(parseNum($("#pcu", md.el).value) * 100) / 100, ativo: $("#pa", md.el).checked };
     if (d.custo < 0) return toast("Custo inválido", "erro");
+    d.controlaEstoque = $("#pce", md.el).checked;
+    let ajusteEst = null;
+    if (d.controlaEstoque) {
+      d.estoqueMin = Math.max(0, parseNum($("#pqm", md.el).value));
+      const qn = parseNum($("#pqe", md.el).value), qa = p?.controlaEstoque ? qtdEstoque(p) : null;
+      if (qa === null || qn !== qa) { d.estoque = qn; ajusteEst = { de: qa, para: qn }; }
+    }
     if (!d.nome || !(d.preco > 0)) return toast("Informe nome e preço", "erro");
     const ref = p ? doc(db, C.produtos, p.id) : doc(col(C.produtos));
     const bt = writeBatch(db);
+    if (ajusteEst) bt.set(doc(col(C.estoque)), { tipo: ajusteEst.de === null ? "inicio" : "ajuste", pid: ref.id, nome: d.nome, de: ajusteEst.de, para: ajusteEst.para, qtd: ajusteEst.para - (ajusteEst.de || 0), por: S.perfil.nome, em: serverTimestamp() });
     if (fotoMudou) {
       d.fotoV = foto ? Date.now() : 0;
       if (foto) bt.set(doc(db, C.fotos, ref.id), { foto, atualizadoEm: serverTimestamp() }); else if (p) bt.delete(doc(db, C.fotos, ref.id));
@@ -1678,7 +1784,7 @@ function sincronizarPublico() {
     expediente: expAberto(S.cfg), online: !!S.cfg.deliveryAberto, aberto: expAberto(S.cfg) && !!S.cfg.deliveryAberto,
     horario: S.cfg.horario || "", entrega: S.cfg.fazEntrega !== false,
     taxaEntrega: Math.round((S.cfg.taxaEntrega || 0) * 100),
-    produtos: S.produtos.filter(p => p.ativo !== false).map(p => ({ id: p.id, nome: p.nome, categoria: p.categoria || "Outros", preco: p.preco, desc: p.desc || "", fotoV: p.fotoV || 0 }))
+    produtos: S.produtos.filter(p => p.ativo !== false && !(p.controlaEstoque && qtdEstoque(p) <= 0)).map(p => ({ id: p.id, nome: p.nome, categoria: p.categoria || "Outros", preco: p.preco, desc: p.desc || "", fotoV: p.fotoV || 0 }))
   };
   const hash = JSON.stringify(dado);
   if (S.publico?.hash === hash || _pubPend === hash) return;
@@ -1743,7 +1849,8 @@ function renderDelivery() {
 }
 function aceitarDlv(d) {
   const bt = writeBatch(db), pref = doc(col(C.pedidos));
-  bt.set(pref, {
+  const baixaDlv = movEstoque(bt, d.itens, -1);
+  bt.set(pref, { baixaEstoque: baixaDlv,
     mesaId: "dlv_" + d.id, mesaNumero: 0, mesaNome: "", rotulo: rotuloDlv(d), sessao: d.id,
     itens: (d.itens || []).map((i, k) => ({ pid: i.pid || "", nome: i.nome, preco: i.preco, qtd: i.qtd, obs: k === 0 && d.obs ? "Obs. do cliente: " + d.obs : "", para: [] })),
     status: "recebido", aberto: true, garcomEmail: "delivery", garcomNome: "Online", criadoEm: serverTimestamp(), dia: diaOperacao()
@@ -1761,7 +1868,7 @@ function recusarDlv(d, tipo) {
   $("#ok", md.el).onclick = () => {
     const bt = writeBatch(db);
     bt.update(doc(db, C.delivery, d.id), { status: tipo, ativo: false, motivo: $("#mot", md.el).value.trim().slice(0, 200), encerradoEm: serverTimestamp() });
-    if (d.pedidoId) bt.update(doc(db, C.pedidos, d.pedidoId), { status: "cancelado", aberto: false, canceladoPor: S.perfil.nome });
+    if (d.pedidoId) { bt.update(doc(db, C.pedidos, d.pedidoId), { status: "cancelado", aberto: false, canceladoPor: S.perfil.nome }); const pe = S.pedidos.find(x => x.id === d.pedidoId); if (pe?.baixaEstoque && pe.status !== "cancelado") movEstoque(bt, pe.itens, +1); }
     salvar(bt.commit(), tipo === "recusado" ? "Pedido recusado" : "Pedido cancelado"); md.fechar();
   };
 }
@@ -1783,6 +1890,7 @@ function concluirDlv(d) {
     });
     bt.update(doc(db, C.delivery, d.id), { status: "concluido", ativo: false, forma, encerradoEm: serverTimestamp() });
     if (d.pedidoId) bt.update(doc(db, C.pedidos, d.pedidoId), { status: "entregue", aberto: false });
+    else movEstoque(bt, d.itens, -1);
     salvar(bt.commit(), "Pedido concluído"); md.fechar();
   };
 }
@@ -1939,7 +2047,7 @@ function verConta(c) {
     ${origemConta(c) === "balcao" && c.id ? `<button class="btn danger block" id="estornar" style="margin-top:14px">Estornar esta venda</button>` : ""}`);
   md.el.querySelector("#estornar")?.addEventListener("click", async () => {
     if (!await confirmar(`Estornar a venda <b>${esc(c.rotulo || "Balcão")}</b> de <b>${brlR(c.total)}</b>? Ela sai do relatório.`, "Estornar", true)) return;
-    try { await deleteDoc(doc(db, C.contas, c.id)); toast("Venda estornada", "ok"); md.fechar(); gerarRelatorio(); }
+    try { const bt = writeBatch(db); if (c.baixaEstoque) movEstoque(bt, c.itens, +1); bt.delete(doc(db, C.contas, c.id)); await bt.commit(); toast("Venda estornada" + (c.baixaEstoque ? " · estoque devolvido" : ""), "ok"); md.fechar(); gerarRelatorio(); }
     catch (e) { erroSnap(e); }
   });
 }
