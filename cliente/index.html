@@ -15,7 +15,7 @@ html,body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',syste
 body{display:flex;flex-direction:column;align-items:center;padding:24px 16px calc(28px + env(safe-area-inset-bottom))}
 .hidden{display:none!important}
 .w{width:100%;max-width:380px;text-align:center}
-.logo{width:64px;height:64px;border-radius:18px;background:var(--ac);display:grid;place-items:center;font-size:34px;margin:0 auto 16px}
+.logo{width:64px;height:64px;border-radius:18px;background:var(--ac);display:grid;place-items:center;font-size:34px;margin:0 auto 16px;overflow:hidden}.logo.img{background:none}.logo img{width:100%;height:100%;object-fit:cover;display:block}
 .barnome{color:var(--mu);text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;margin-bottom:4px}
 .mesa{font-family:'Space Grotesk',sans-serif;font-size:2.6rem;font-weight:700;line-height:1}
 .sub{color:var(--mu);margin:8px 0 28px}
@@ -145,12 +145,18 @@ if (!BAR_ID || !/^[a-z0-9-]+$/.test(BAR_ID)) {
   throw new Error("bar não identificado");
 }
 const P = n => `bares/${BAR_ID}/${n}`;
+const LOGO_OK = s => typeof s === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(s);
+function iconeBar(d) {
+  const img = LOGO_OK(d?.logo);
+  $$(".logo").forEach(el => { el.innerHTML = img ? `<img src="${d.logo}" alt="">` : esc(d?.icone || "🍺"); el.classList.toggle("img", img); });
+}
 
 if (mesaId && token && numero > 0) modoMesa(); else modoLoja();
 
 /* =================== MESA =================== */
 function modoMesa() {
   $("#modoMesa").classList.remove("hidden");
+  getDoc(doc(db, P("publico"), "cardapio")).then(s => iconeBar(s.data())).catch(() => { });
   const ESPERA = 45;
   const msg = (tipo, titulo, texto) => { const m = $("#msg"); m.className = tipo; m.innerHTML = `<b>${titulo}</b>${texto}`; };
   $("#mesa").textContent = "Mesa " + numero;
@@ -231,6 +237,7 @@ function modoLoja() {
 
   onSnapshot(doc(db, P("publico"), "cardapio"), s => {
     L.cfg = s.exists() ? s.data() : { produtos: [], aberto: false };
+    iconeBar(L.cfg);
     $("#lNome").textContent = L.cfg.nomeBar || "Cardápio";
     document.title = (L.cfg.nomeBar || "Cardápio") + " · Cardápio online";
     const exp = L.cfg.expediente === undefined ? L.cfg.aberto : L.cfg.expediente;
