@@ -102,7 +102,7 @@ main{max-width:640px;margin:0 auto;padding:16px}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, inMemoryPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, serverTimestamp, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ================= CONFIGURAÇÃO ================= */
 const firebaseConfig = {
@@ -115,7 +115,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "1.1";
+const VERSAO = "1.2";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -352,7 +352,11 @@ function detalhes(id) {
     <h3>Acesso</h3>
     ${b.status === "ativo"
       ? `<button class="btn danger block" id="dStatus">Suspender acesso</button><p class="small muted" style="margin-top:6px">Dono e garçons veem “Acesso suspenso”. Os dados ficam guardados.</p>`
-      : `<button class="btn block" id="dStatus">Reativar acesso</button>`}`);
+      : `<button class="btn block" id="dStatus">Reativar acesso</button>`}
+    <h3>Zona de perigo</h3>
+    ${b.plano === "proprio"
+      ? `<p class="small muted">Este é o seu bar (plano Próprio) e não pode ser excluído por aqui.</p>`
+      : `<button class="btn danger block" id="dExcluir">🗑️ Excluir bar e todos os dados</button>`}`);
   $("#dCpCard", md.el).onclick = () => copiar(L.cardapio);
   $("#dEnviar", md.el).onclick = () => boasVindas({ ...b, email: b.donoEmail }, null);
   $("#dEditar", md.el).onclick = () => { md.fechar(); editar(b); };
@@ -365,11 +369,61 @@ function detalhes(id) {
       toast("Pagamento registrado", "ok"); md.fechar();
     } catch (e) { toast(erroMsg(e), "erro"); }
   });
+  $("#dExcluir", md.el)?.addEventListener("click", () => { md.fechar(); excluirBar(b); });
   $("#dStatus", md.el).onclick = async () => {
     const suspender = b.status === "ativo";
     if (suspender && !await confirmar(`Suspender o acesso de <b>${esc(b.nome)}</b>?`, "Suspender", true)) return;
     try { await updateDoc(doc(db, "bares", id), { status: suspender ? "bloqueado" : "ativo" }); toast(suspender ? "Acesso suspenso" : "Acesso reativado", "ok"); md.fechar(); }
     catch (e) { toast(erroMsg(e), "erro"); }
+  };
+}
+
+/* ---------- Excluir bar: apaga bares/{id}, todas as subcoleções e os vínculos da equipe ---------- */
+const SUBCOLECOES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos"];
+function excluirBar(b) {
+  const md = abrirModal(`<div class="mh"><h2>Excluir ${esc(b.nome || b.id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <div class="card" style="border-color:var(--er)">
+      <b style="color:var(--er)">Isto não tem volta.</b>
+      <p class="small" style="margin-top:6px">Serão apagados o cadastro do bar, cardápio, mesas, pedidos, relatórios, clientes e equipe, e o dono e os garçons perdem o acesso.</p>
+      <p class="small muted" style="margin-top:6px">Se a ideia é só bloquear por falta de pagamento, use <b>Suspender acesso</b>: os dados ficam guardados.</p>
+    </div>
+    <label>Para confirmar, digite o identificador: <b style="color:var(--tx)">${esc(b.id)}</b></label>
+    <input id="xId" autocapitalize="off" autocomplete="off" placeholder="${esc(b.id)}">
+    <p class="small" id="xInfo" style="margin-top:8px"></p>
+    <button class="btn danger block" id="xOk" style="margin-top:12px" disabled>Excluir definitivamente</button>`);
+  const inp = $("#xId", md.el), ok = $("#xOk", md.el), info = s => { $("#xInfo", md.el).textContent = s; };
+  inp.oninput = () => { ok.disabled = inp.value.trim() !== b.id; };
+  ok.onclick = async () => {
+    if (inp.value.trim() !== b.id) return;
+    ok.disabled = true; inp.disabled = true; ok.textContent = "Excluindo…";
+    const emails = new Set([b.donoEmail].filter(Boolean));
+    try {
+      let total = 0;
+      for (const n of SUBCOLECOES) {
+        info(`Apagando ${n}…`);
+        const snap = await getDocs(collection(db, `bares/${b.id}/${n}`));
+        if (n === "garcons") snap.docs.forEach(d => emails.add(d.id));
+        for (let i = 0; i < snap.docs.length; i += 400) {
+          const bt = writeBatch(db); snap.docs.slice(i, i + 400).forEach(d => bt.delete(d.ref)); await bt.commit();
+        }
+        total += snap.size;
+      }
+      info("Removendo acessos da equipe…");
+      const us = await getDocs(query(collection(db, "usuarios"), where("barId", "==", b.id)));
+      const bt = writeBatch(db);
+      us.docs.forEach(d => { if (d.id !== SUPER) { bt.delete(d.ref); emails.add(d.id); } });
+      bt.delete(doc(db, "bares", b.id));
+      await bt.commit();
+      md.fechar(); toast(`Bar excluído (${total} registros)`, "ok");
+      const lista = [...emails].filter(e => e && e !== SUPER);
+      if (lista.length) abrirModal(`<div class="mh"><h2>Bar excluído</h2><button class="icon-btn" data-fechar>✕</button></div>
+        <p class="small">Os dados e os acessos foram removidos. Os logins abaixo continuam existindo no Firebase, mas não entram em nada. Se quiser apagá-los também: Console do Firebase → <b>Authentication → Users</b>.</p>
+        <div class="link" style="margin-top:10px">${lista.map(esc).join("<br>")}</div>
+        <button class="btn block" data-fechar style="margin-top:12px">Entendi</button>`);
+    } catch (e) {
+      console.error(e); info(""); ok.textContent = "Tentar de novo"; ok.disabled = false; inp.disabled = false;
+      toast(erroMsg(e) + " · parte dos dados pode ter sido apagada, tente de novo", "erro");
+    }
   };
 }
 
