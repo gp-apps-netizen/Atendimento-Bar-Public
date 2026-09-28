@@ -57,14 +57,14 @@ main{max-width:640px;margin:0 auto;padding:16px}
 .modal{background:var(--s1);border:1px solid var(--bd);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
 @media(min-width:600px){.modal-bg{align-items:center}.modal{border-radius:18px}}
 .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-#toast{position:fixed;left:16px;right:16px;bottom:20px;margin:0 auto;max-width:480px;background:var(--s3);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .2s}
+#toast{position:fixed;left:16px;right:16px;bottom:20px;margin:0 auto;max-width:480px;background:var(--s3);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .2s;pointer-events:none;opacity:0}
 #toast.ok{border-color:var(--ok)}#toast.erro{border-color:var(--er)}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand"><b>Administrador</b><small id="quem">Atendimento de Bar</small></div>
-  <button class="icon-btn hidden" id="btnSair" title="Sair">⎋</button>
+  <button class="btn ghost sm hidden" id="btnSair">Sair</button>
 </header>
 <main>
   <section id="t-login" class="center hidden">
@@ -115,7 +115,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "1.0";
+const VERSAO = "1.1";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
