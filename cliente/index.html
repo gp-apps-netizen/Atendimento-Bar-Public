@@ -137,6 +137,14 @@ const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { ret
 const db = getFirestore(initializeApp(firebaseConfig));
 const q = new URLSearchParams(location.search);
 const mesaId = q.get("m"), numero = parseInt(q.get("n")), token = q.get("t");
+/* Qual bar? ?b=ID no link. Links antigos (sem b) usam o bar padrão. */
+let BAR_ID = q.get("b");
+if (!BAR_ID) { try { const s = await getDoc(doc(db, "sistema", "padrao")); BAR_ID = s.exists() ? s.data().barId : null; } catch (e) { console.warn(e); } }
+if (!BAR_ID || !/^[a-z0-9-]+$/.test(BAR_ID)) {
+  document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:system-ui;color:#ececec;background:#111214"><div><div style="font-size:48px">🍺</div><h2>Link inválido</h2><p style="color:#9b9ca3">Peça ao bar um novo link ou QR Code.</p></div></div>`;
+  throw new Error("bar não identificado");
+}
+const P = n => `bares/${BAR_ID}/${n}`;
 
 if (mesaId && token && numero > 0) modoMesa(); else modoLoja();
 
@@ -161,7 +169,7 @@ function modoMesa() {
   async function chamar(tipo) {
     $("#bGarcom").disabled = $("#bConta").disabled = true;
     try {
-      await setDoc(doc(db, "bar_chamados", mesaId), { tipo, token, mesaNumero: numero, criadoEm: serverTimestamp() });
+      await setDoc(doc(db, P("chamados"), mesaId), { tipo, token, mesaNumero: numero, criadoEm: serverTimestamp() });
       ls.set(chave, String(Date.now()));
       if (navigator.vibrate) navigator.vibrate(120);
       msg("ok", tipo === "conta" ? "✓ Conta solicitada" : "✓ Garçom avisado",
@@ -202,7 +210,7 @@ function modoMesa() {
       ${(d.pessoas || []).length ? `<h2 style="margin-top:16px">Divisão <small>${DIV[d.divisao] || ""}</small></h2>
         ${d.pessoas.map(p => `<div class="lin"><span>${esc(p.nome)}${p.pago ? `<span class="pago">✓ pago</span>` : ""}</span><span class="v">${brl(p.total)}</span></div>`).join("")}` : ""}`;
   }
-  onSnapshot(doc(db, "bar_comandas", token), s => comanda(s.exists() ? s.data() : null),
+  onSnapshot(doc(db, P("comandas"), token), s => comanda(s.exists() ? s.data() : null),
     e => { console.warn(e); $("#com").innerHTML = `<h2>Comanda da mesa</h2><div class="vazio">Não foi possível carregar a comanda.</div>`; });
   $("#bGarcom").onclick = () => chamar("garcom");
   $("#bConta").onclick = () => chamar("conta");
@@ -221,7 +229,7 @@ function modoLoja() {
   const taxaEnt = () => L.tipo === "entrega" ? (L.cfg?.taxaEntrega || 0) : 0;
   const dados = JSON.parse(ls.get("dlv_dados") || "{}");
 
-  onSnapshot(doc(db, "bar_publico", "cardapio"), s => {
+  onSnapshot(doc(db, P("publico"), "cardapio"), s => {
     L.cfg = s.exists() ? s.data() : { produtos: [], aberto: false };
     $("#lNome").textContent = L.cfg.nomeBar || "Cardápio";
     document.title = (L.cfg.nomeBar || "Cardápio") + " · Cardápio online";
@@ -278,7 +286,7 @@ function modoLoja() {
       if (fotoCache[k] && fotoCache[k] !== "…") return porFoto(img, fotoCache[k]);
       if (fotoCache[k] === "…") return;
       fotoCache[k] = "…";
-      getDoc(doc(db, "bar_fotos", id)).then(s => {
+      getDoc(doc(db, P("fotos"), id)).then(s => {
         if (!s.exists()) return;
         fotoCache[k] = s.data().foto;
         $$(`img[data-foto="${id}"][data-v="${v}"]`).forEach(i => porFoto(i, fotoCache[k]));
@@ -337,7 +345,7 @@ function modoLoja() {
     const hoje = new Date(Date.now() - 6 * 3600e3), pad = n => String(n).padStart(2, "0");
     const b = $("#enviar"); b.disabled = true; b.textContent = "Enviando…";
     try {
-      const ref = await addDoc(collection(db, "bar_delivery"), {
+      const ref = await addDoc(collection(db, P("delivery")), {
         nome: nome.slice(0, 60), telefone: fone, tipo: L.tipo, endereco: L.tipo === "entrega" ? endereco.slice(0, 200) : "",
         pagamento, troco, obs: $("#fObs").value.trim().slice(0, 300), itens, subtotal: sub, taxaEntrega: taxa, total: sub + taxa,
         status: "aguardando", ativo: true, criadoEm: serverTimestamp(), dia: `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`
@@ -357,7 +365,7 @@ function modoLoja() {
     const u = new URL(location.href); u.searchParams.set("p", id); history.replaceState(null, "", u.href);
     L.unsubPed?.();
     C.innerHTML = `<div class="vazio">Carregando o seu pedido…</div>`;
-    L.unsubPed = onSnapshot(doc(db, "bar_delivery", id), s => {
+    L.unsubPed = onSnapshot(doc(db, P("delivery"), id), s => {
       if (!s.exists()) { C.innerHTML = `<div class="vazio">Pedido não encontrado.</div><button class="btn ghost" id="novo">Fazer um pedido</button>`; $("#novo").onclick = novoPedido; return; }
       statusTela(s.data());
     }, e => { console.warn(e); C.innerHTML = `<div class="vazio">Não foi possível carregar o pedido.</div>`; });
