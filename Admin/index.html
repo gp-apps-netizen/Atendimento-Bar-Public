@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111214">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Bar · Administrador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#111214; --s1:#1a1b1e; --s2:#222327; --s3:#2c2d32; --bd:#303137;
+  --tx:#ececec; --mu:#9b9ca3; --ac:#f5a524; --acx:#1b1300;
+  --ok:#3ecf8e; --er:#ef5350; --info:#4aa3ff; --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;line-height:1.4}
+body{min-height:100vh;padding-bottom:40px}
+body.noscroll{overflow:hidden}
+h1,h2,.num{font-family:'Space Grotesk',system-ui,sans-serif}
+h2{font-size:1.15rem;margin:4px 0 12px}
+h3{margin:18px 0 8px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:.78rem}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 12px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+label{display:block;font-size:.8rem;color:var(--mu);margin:10px 0 4px}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--bd);padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+.top .brand{flex:1;min-width:0}.top b{font-family:'Space Grotesk';font-size:1.05rem;display:block}.top small{color:var(--mu)}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.btn{background:var(--ac);color:var(--acx);font-weight:600;border-radius:10px;padding:11px 16px;text-align:center}
+.btn.ghost{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}
+.btn.danger{background:transparent;color:var(--er);border:1px solid var(--er)}
+.btn.ok{background:var(--ok);color:#03150d}
+.btn.block{width:100%;display:block}.btn:disabled{opacity:.5}
+.btn.sm{padding:8px 12px;font-size:.85rem}
+.icon-btn{width:38px;height:38px;border-radius:10px;background:var(--s2);border:1px solid var(--bd);display:grid;place-items:center;flex:none}
+.row{display:flex;gap:8px;align-items:center}.row.wrap{flex-wrap:wrap}.grow{flex:1}.between{justify-content:space-between}
+.muted{color:var(--mu)}.small{font-size:.82rem}.hidden{display:none!important}
+.badge{display:inline-block;font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:99px;vertical-align:middle}
+.b-ok{background:rgba(62,207,142,.15);color:var(--ok)}.b-er{background:rgba(239,83,80,.15);color:var(--er)}
+.b-warn{background:rgba(245,165,36,.15);color:var(--ac)}.b-info{background:rgba(74,163,255,.15);color:var(--info)}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:6px}
+.kpi{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:12px}
+.kpi .num{font-size:1.4rem;font-weight:700}.kpi small{color:var(--mu);display:block}
+.bar-card{width:100%;text-align:left;display:block}
+.bar-card .nome{font-family:'Space Grotesk';font-weight:600;font-size:1.05rem}
+.seg{display:flex;background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:3px;gap:3px;margin-bottom:10px}
+.seg button{flex:1;padding:8px;border-radius:8px;color:var(--mu);font-size:.85rem}.seg button.on{background:var(--s3);color:var(--tx)}
+.center{min-height:75vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px}
+.hero{font-size:52px}
+.empty{color:var(--mu);text-align:center;padding:28px 10px}
+.link{word-break:break-all;font-size:.85rem;background:var(--s2);border-radius:8px;padding:8px 10px;margin:4px 0 8px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--s1);border:1px solid var(--bd);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+@media(min-width:600px){.modal-bg{align-items:center}.modal{border-radius:18px}}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+#toast{position:fixed;left:16px;right:16px;bottom:20px;margin:0 auto;max-width:480px;background:var(--s3);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .2s}
+#toast.ok{border-color:var(--ok)}#toast.erro{border-color:var(--er)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>Administrador</b><small id="quem">Atendimento de Bar</small></div>
+  <button class="icon-btn hidden" id="btnSair" title="Sair">⎋</button>
+</header>
+<main>
+  <section id="t-login" class="center hidden">
+    <div class="hero">🛠️</div>
+    <h2>Painel do administrador</h2>
+    <p class="muted">Cadastro de bares, mensalidades e bloqueios.</p>
+    <div style="width:100%;max-width:340px;text-align:left">
+      <label>E-mail</label><input id="lgEmail" type="email" inputmode="email" autocomplete="username">
+      <label>Senha</label><input id="lgSenha" type="password" autocomplete="current-password">
+      <button class="btn block" id="lgEntrar" style="margin-top:14px">Entrar</button>
+    </div>
+  </section>
+
+  <section id="t-semacesso" class="center hidden">
+    <div class="hero">🔒</div>
+    <h2>Área restrita</h2>
+    <p class="muted">Este login não é o do administrador do sistema.</p>
+    <button class="btn ghost" id="btnTrocar">Trocar conta</button>
+  </section>
+
+  <section id="t-painel" class="hidden">
+    <div class="kpis">
+      <div class="kpi"><small>Bares ativos</small><div class="num" id="kAtivos">0</div></div>
+      <div class="kpi"><small>Receita mensal</small><div class="num" id="kReceita">R$ 0</div></div>
+      <div class="kpi"><small>Vencidos</small><div class="num" id="kVencidos">0</div></div>
+      <div class="kpi"><small>Suspensos</small><div class="num" id="kSuspensos">0</div></div>
+    </div>
+    <button class="btn block" id="btnNovo" style="margin:10px 0 4px">+ Novo bar</button>
+    <h3>Bares</h3>
+    <div class="seg" id="filtro"><button data-f="todos" class="on">Todos</button><button data-f="ativos">Ativos</button><button data-f="vencidos">Vencidos</button><button data-f="suspensos">Suspensos</button></div>
+    <div id="lista"></div>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, inMemoryPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ================= CONFIGURAÇÃO ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAeSmdHNn7LTk60DKO3DCGOTvPaNHdzMF4",
+  authDomain: "atendimento-bar.firebaseapp.com",
+  projectId: "atendimento-bar",
+  storageBucket: "atendimento-bar.firebasestorage.app",
+  messagingSenderId: "92179047707",
+  appId: "1:92179047707:web:08d82fc86c7da2f0215fbe",
+  measurementId: "G-NT0H4GQ3V7"
+};
+const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
+const VERSAO = "1.0";
+/* ================================================ */
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const brl = c => ((c || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const parseNum = s => { s = String(s ?? "").trim().replace(/\s|R\$/g, ""); if (s.includes(",")) s = s.replace(/\./g, "").replace(",", "."); return Number(s) || 0; };
+const cents = v => Math.round((Number(v) || 0) * 100);
+const pad = n => String(n).padStart(2, "0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const hoje = () => iso(new Date());
+const fmtDia = s => s ? s.split("-").reverse().join("/") : "—";
+const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const slug = s => norm(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30);
+const emailOk = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+/* soma meses mantendo o dia (31/01 + 1 mês → 28 ou 29/02) */
+function maisMeses(s, n) {
+  const [a, m, d] = (s || hoje()).split("-").map(Number);
+  const alvo = new Date(a, m - 1 + n, 1), ult = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+  alvo.setDate(Math.min(d, ult)); return iso(alvo);
+}
+const diasAte = s => Math.round((new Date(s + "T12:00") - new Date(hoje() + "T12:00")) / 864e5);
+
+function toast(msg, tipo = "") {
+  let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.className = tipo; t.textContent = msg; t.style.opacity = 1;
+  clearTimeout(t._t); t._t = setTimeout(() => { t.style.opacity = 0; }, 3200);
+}
+function abrirModal(html) {
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal">${html}</div>`; document.body.appendChild(bg); document.body.classList.add("noscroll");
+  const fechar = () => { bg.remove(); if (!$(".modal-bg")) document.body.classList.remove("noscroll"); };
+  bg.onclick = e => { if (e.target === bg) fechar(); };
+  $$("[data-fechar]", bg).forEach(b => b.onclick = fechar);
+  return { el: bg, fechar };
+}
+function confirmar(msg, ok = "Confirmar", perigo = false) {
+  return new Promise(res => {
+    const md = abrirModal(`<p style="margin:6px 0 16px">${msg}</p><div class="row"><button class="btn ghost grow" id="nao">Cancelar</button><button class="btn grow ${perigo ? "danger" : ""}" id="sim">${esc(ok)}</button></div>`);
+    $("#nao", md.el).onclick = () => { md.fechar(); res(false); };
+    $("#sim", md.el).onclick = () => { md.fechar(); res(true); };
+  });
+}
+async function copiar(txt) {
+  try { await navigator.clipboard.writeText(txt); toast("Copiado", "ok"); }
+  catch (e) { prompt("Copie:", txt); }
+}
+const erroMsg = e => ({
+  "auth/invalid-credential": "E-mail ou senha incorretos", "auth/wrong-password": "E-mail ou senha incorretos",
+  "auth/user-not-found": "E-mail ou senha incorretos", "auth/too-many-requests": "Muitas tentativas. Aguarde um pouco",
+  "auth/invalid-email": "E-mail inválido", "auth/weak-password": "Senha fraca (mínimo 6 caracteres)",
+  "permission-denied": "Sem permissão (confira as regras do Firestore)"
+}[e.code] || ("Erro: " + (e.code || e.message)));
+
+/* ---------- Links de cada bar ---------- */
+const raiz = new URL("../", location.href.split("#")[0].split("?")[0]);
+const links = id => ({
+  central: new URL("central/", raiz).href,
+  garcom: new URL("garcom/", raiz).href,
+  cardapio: new URL(`cliente/?b=${encodeURIComponent(id)}`, raiz).href,
+  suporte: new URL(`central/?bar=${encodeURIComponent(id)}`, raiz).href
+});
+
+/* ---------- Estado ---------- */
+const S = { bares: [], filtro: "todos", unsub: null };
+
+function mostrar(t) {
+  $$("main > section").forEach(s => s.classList.add("hidden")); $("#t-" + t).classList.remove("hidden");
+  $("#btnSair").classList.toggle("hidden", t === "login");
+}
+
+/* ---------- Login ---------- */
+const entrar = async () => {
+  const email = $("#lgEmail").value.trim().toLowerCase(), senha = $("#lgSenha").value;
+  if (!email || !senha) return toast("Informe e-mail e senha", "erro");
+  const b = $("#lgEntrar"); b.disabled = true; b.textContent = "Entrando…";
+  try { await signInWithEmailAndPassword(auth, email, senha); $("#lgSenha").value = ""; } catch (e) { toast(erroMsg(e), "erro"); }
+  b.disabled = false; b.textContent = "Entrar";
+};
+$("#lgEntrar").onclick = entrar;
+$("#lgSenha").onkeydown = e => { if (e.key === "Enter") entrar(); };
+$("#btnTrocar").onclick = () => signOut(auth);
+$("#btnSair").onclick = async () => { if (await confirmar("Sair do painel neste aparelho?", "Sair")) signOut(auth); };
+
+onAuthStateChanged(auth, u => {
+  S.unsub?.(); S.unsub = null;
+  if (!u) return mostrar("login");
+  if ((u.email || "").toLowerCase() !== SUPER) return mostrar("semacesso");
+  $("#quem").textContent = u.email + " · v" + VERSAO;
+  mostrar("painel");
+  S.unsub = onSnapshot(collection(db, "bares"), s => {
+    S.bares = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+    render();
+  }, e => { console.error(e); toast(erroMsg(e), "erro"); });
+});
+
+/* ---------- Lista ---------- */
+const vencido = b => b.plano !== "proprio" && b.vencimento && diasAte(b.vencimento) < 0;
+function situacao(b) {
+  if (b.status !== "ativo") return `<span class="badge b-er">Suspenso</span>`;
+  if (b.plano === "proprio") return `<span class="badge b-info">Próprio</span>`;
+  if (!b.vencimento) return `<span class="badge b-ok">Ativo</span>`;
+  const d = diasAte(b.vencimento);
+  if (d < 0) return `<span class="badge b-er">Vencido há ${-d} dia${d === -1 ? "" : "s"}</span>`;
+  if (d <= 5) return `<span class="badge b-warn">Vence ${d === 0 ? "hoje" : `em ${d} dia${d === 1 ? "" : "s"}`}</span>`;
+  return `<span class="badge b-ok">Em dia</span>`;
+}
+function render() {
+  const ativos = S.bares.filter(b => b.status === "ativo");
+  $("#kAtivos").textContent = ativos.length;
+  $("#kReceita").textContent = brl(ativos.filter(b => b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0));
+  $("#kVencidos").textContent = ativos.filter(vencido).length;
+  $("#kSuspensos").textContent = S.bares.length - ativos.length;
+  const l = S.bares.filter(b => S.filtro === "todos" || (S.filtro === "ativos" && b.status === "ativo")
+    || (S.filtro === "vencidos" && b.status === "ativo" && vencido(b)) || (S.filtro === "suspensos" && b.status !== "ativo"));
+  $("#lista").innerHTML = l.map(b => `<button class="card bar-card" data-bar="${esc(b.id)}">
+      <div class="row between"><span class="nome">${esc(b.nome || b.id)}</span>${situacao(b)}</div>
+      <div class="small muted" style="margin-top:4px">${esc(b.id)} · ${esc(b.donoEmail || "")}</div>
+      ${b.plano !== "proprio" ? `<div class="small" style="margin-top:4px">${brl(b.mensalidade)}/mês · vence ${fmtDia(b.vencimento)}</div>` : ""}
+    </button>`).join("") || `<div class="empty">${S.bares.length ? "Nenhum bar neste filtro." : "Nenhum bar cadastrado."}</div>`;
+  $$("[data-bar]").forEach(x => x.onclick = () => detalhes(x.dataset.bar));
+}
+$$("#filtro button").forEach(b => b.onclick = () => { S.filtro = b.dataset.f; $$("#filtro button").forEach(x => x.classList.toggle("on", x === b)); render(); });
+
+/* ---------- Novo bar ---------- */
+let appSec;
+async function criarLogin(email, senha) {
+  appSec = appSec || initializeApp(firebaseConfig, "cadastro");
+  const a2 = getAuth(appSec);
+  await setPersistence(a2, inMemoryPersistence);
+  await createUserWithEmailAndPassword(a2, email, senha);
+  await signOut(a2);
+}
+$("#btnNovo").onclick = () => {
+  const venc = maisMeses(hoje(), 1);
+  const md = abrirModal(`<div class="mh"><h2>Novo bar</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome do bar *</label><input id="nNome" placeholder="Ex.: Boteco do Zé">
+    <label>Identificador * (vai no link do cardápio)</label><input id="nId" autocapitalize="off" placeholder="boteco-do-ze">
+    <h3>Responsável</h3>
+    <label>Nome *</label><input id="nDonoNome">
+    <label>E-mail (será o login) *</label><input id="nEmail" type="email" inputmode="email" autocapitalize="off">
+    <label>Senha inicial * (mín. 6)</label><input id="nSenha" type="text" autocomplete="off" value="${Math.random().toString(36).slice(2, 8)}">
+    <h3>Cobrança</h3>
+    <div class="row"><div class="grow"><label>Mensalidade (R$)</label><input id="nValor" inputmode="decimal" placeholder="99,90"></div>
+      <div class="grow"><label>1º vencimento</label><input id="nVenc" type="date" value="${venc}"></div></div>
+    <label>Observações</label><textarea id="nObs" rows="2" placeholder="Telefone, endereço, combinado…"></textarea>
+    <button class="btn block" id="nOk" style="margin-top:16px">Criar bar e login</button>`);
+  let mexeu = false;
+  $("#nId", md.el).oninput = () => { mexeu = true; };
+  $("#nNome", md.el).oninput = () => { if (!mexeu) $("#nId", md.el).value = slug($("#nNome", md.el).value); };
+  $("#nOk", md.el).onclick = async () => {
+    const v = id => $(id, md.el).value.trim();
+    const nome = v("#nNome"), id = v("#nId"), donoNome = v("#nDonoNome"), email = v("#nEmail").toLowerCase(), senha = v("#nSenha");
+    if (!nome || !donoNome) return toast("Preencha o nome do bar e do responsável", "erro");
+    if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return toast("Identificador: 3 a 30 caracteres, só a-z, 0-9 e hífen", "erro");
+    if (!emailOk(email)) return toast("E-mail inválido", "erro");
+    if (email === SUPER) return toast("Use o e-mail do dono do bar, não o seu", "erro");
+    if (senha.length < 6) return toast("Senha com pelo menos 6 caracteres", "erro");
+    const bt = $("#nOk", md.el); bt.disabled = true; bt.textContent = "Criando…";
+    const volta = msg => { bt.disabled = false; bt.textContent = "Criar bar e login"; toast(msg, "erro"); };
+    try {
+      if ((await getDoc(doc(db, "bares", id))).exists()) return volta("Já existe um bar com esse identificador");
+      const u = await getDoc(doc(db, "usuarios", email));
+      if (u.exists()) return volta(`Este e-mail já está no bar “${u.data().barId}”`);
+      let senhaNova = true;
+      try { await criarLogin(email, senha); }
+      catch (e) { if (e.code !== "auth/email-already-in-use") return volta(erroMsg(e)); senhaNova = false; }
+      const b = writeBatch(db);
+      b.set(doc(db, "bares", id), { nome, donoEmail: email, donoNome, status: "ativo", plano: "mensal",
+        mensalidade: cents(parseNum(v("#nValor"))), vencimento: v("#nVenc") || null, obs: v("#nObs"), criadoEm: serverTimestamp() });
+      b.set(doc(db, "usuarios", email), { barId: id });
+      b.set(doc(db, `bares/${id}/config`, "geral"), { nomeBar: nome, taxaServico: 10 });
+      b.set(doc(db, `bares/${id}/garcons`, email), { nome: donoNome, ativo: true, central: true });
+      await b.commit();
+      md.fechar(); toast("Bar criado!", "ok");
+      boasVindas({ id, nome, donoNome, email }, senhaNova ? senha : null);
+    } catch (e) { console.error(e); volta(erroMsg(e)); }
+  };
+};
+
+/* Mensagem pronta para mandar ao dono */
+function textoBoasVindas(b, senha) {
+  const L = links(b.id);
+  return `Olá, ${b.donoNome || ""}! O sistema do ${b.nome} está pronto. 🍺
+
+*Central* (caixa, cardápio, equipe e relatórios):
+${L.central}
+
+*App do garçom:*
+${L.garcom}
+
+*Login:* ${b.email || b.donoEmail}
+${senha ? `*Senha:* ${senha}\n(troque em "Esqueci a senha" quando quiser)` : "*Senha:* a mesma que você já usa"}
+
+Primeiros passos na Central: cadastre o cardápio, as mesas e os garçons. O link do cardápio online para os clientes aparece em Mais → Configurações.
+
+Abra os links no Chrome e toque em "Adicionar à tela inicial" para instalar.`;
+}
+function boasVindas(b, senha) {
+  const txt = textoBoasVindas(b, senha);
+  const md = abrirModal(`<div class="mh"><h2>Enviar acesso ao dono</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="small muted" style="margin-bottom:8px">${senha ? "Anote a senha: ela não fica salva em lugar nenhum." : "Este e-mail já tinha login, a senha antiga foi mantida."}</p>
+    <textarea rows="12" readonly>${esc(txt)}</textarea>
+    <div class="row" style="margin-top:12px"><button class="btn ghost grow" id="cp">Copiar</button><button class="btn grow" id="zap">WhatsApp</button></div>`);
+  $("#cp", md.el).onclick = () => copiar(txt);
+  $("#zap", md.el).onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
+}
+
+/* ---------- Detalhes de um bar ---------- */
+function detalhes(id) {
+  const b = S.bares.find(x => x.id === id); if (!b) return;
+  const L = links(id), proprio = b.plano === "proprio";
+  const md = abrirModal(`<div class="mh"><h2>${esc(b.nome || id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <div style="margin-bottom:10px">${situacao(b)}</div>
+    <div class="card">
+      <div class="small muted">Responsável</div><div>${esc(b.donoNome || "—")} · ${esc(b.donoEmail || "")}</div>
+      ${proprio ? "" : `<div class="row" style="margin-top:10px"><div class="grow"><div class="small muted">Mensalidade</div><b>${brl(b.mensalidade)}</b></div>
+        <div class="grow"><div class="small muted">Vencimento</div><b>${fmtDia(b.vencimento)}</b></div></div>
+        ${b.ultimoPagamento ? `<div class="small muted" style="margin-top:6px">Último pagamento: ${fmtDia(b.ultimoPagamento)}</div>` : ""}`}
+      ${b.obs ? `<div class="small" style="margin-top:8px;white-space:pre-wrap">${esc(b.obs)}</div>` : ""}
+    </div>
+    ${proprio ? "" : `<button class="btn ok block" id="dPago">✓ Registrar pagamento (+1 mês)</button>`}
+    <div class="row" style="margin-top:8px">
+      <button class="btn ghost grow sm" id="dEditar">Editar</button>
+      <button class="btn ghost grow sm" id="dEnviar">Reenviar acesso</button>
+    </div>
+    <h3>Links</h3>
+    <div class="small muted">Cardápio online (clientes)</div><div class="link">${esc(L.cardapio)}</div>
+    <div class="row"><button class="btn ghost grow sm" id="dCpCard">Copiar cardápio</button><a class="btn ghost grow sm" href="${esc(L.suporte)}" target="_blank" style="text-decoration:none">Abrir central (suporte)</a></div>
+    <h3>Acesso</h3>
+    ${b.status === "ativo"
+      ? `<button class="btn danger block" id="dStatus">Suspender acesso</button><p class="small muted" style="margin-top:6px">Dono e garçons veem “Acesso suspenso”. Os dados ficam guardados.</p>`
+      : `<button class="btn block" id="dStatus">Reativar acesso</button>`}`);
+  $("#dCpCard", md.el).onclick = () => copiar(L.cardapio);
+  $("#dEnviar", md.el).onclick = () => boasVindas({ ...b, email: b.donoEmail }, null);
+  $("#dEditar", md.el).onclick = () => { md.fechar(); editar(b); };
+  $("#dPago", md.el)?.addEventListener("click", async () => {
+    const base = b.vencimento && diasAte(b.vencimento) > -60 ? b.vencimento : hoje();   // atraso longo: recomeça de hoje
+    const novo = maisMeses(base, 1);
+    if (!await confirmar(`Registrar pagamento de <b>${brl(b.mensalidade)}</b>?<br>Próximo vencimento: <b>${fmtDia(novo)}</b>`, "Registrar")) return;
+    try {
+      await updateDoc(doc(db, "bares", id), { vencimento: novo, ultimoPagamento: hoje(), ...(b.status !== "ativo" ? { status: "ativo" } : {}) });
+      toast("Pagamento registrado", "ok"); md.fechar();
+    } catch (e) { toast(erroMsg(e), "erro"); }
+  });
+  $("#dStatus", md.el).onclick = async () => {
+    const suspender = b.status === "ativo";
+    if (suspender && !await confirmar(`Suspender o acesso de <b>${esc(b.nome)}</b>?`, "Suspender", true)) return;
+    try { await updateDoc(doc(db, "bares", id), { status: suspender ? "bloqueado" : "ativo" }); toast(suspender ? "Acesso suspenso" : "Acesso reativado", "ok"); md.fechar(); }
+    catch (e) { toast(erroMsg(e), "erro"); }
+  };
+}
+
+function editar(b) {
+  const proprio = b.plano === "proprio";
+  const md = abrirModal(`<div class="mh"><h2>Editar ${esc(b.nome || b.id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome do bar</label><input id="eNome" value="${esc(b.nome || "")}">
+    <label>Nome do responsável</label><input id="eDono" value="${esc(b.donoNome || "")}">
+    <label>Plano</label><select id="ePlano"><option value="mensal" ${proprio ? "" : "selected"}>Mensal (cobrado)</option><option value="proprio" ${proprio ? "selected" : ""}>Próprio / cortesia</option></select>
+    <div class="row"><div class="grow"><label>Mensalidade (R$)</label><input id="eValor" inputmode="decimal" value="${b.mensalidade ? (b.mensalidade / 100).toFixed(2).replace(".", ",") : ""}"></div>
+      <div class="grow"><label>Vencimento</label><input id="eVenc" type="date" value="${esc(b.vencimento || "")}"></div></div>
+    <label>Observações</label><textarea id="eObs" rows="3">${esc(b.obs || "")}</textarea>
+    <p class="small muted" style="margin-top:8px">O identificador (${esc(b.id)}) e o e-mail do dono não mudam por aqui.</p>
+    <button class="btn block" id="eOk" style="margin-top:12px">Salvar</button>`);
+  $("#eOk", md.el).onclick = async () => {
+    const v = s => $(s, md.el).value.trim();
+    if (!v("#eNome")) return toast("Informe o nome", "erro");
+    try {
+      await updateDoc(doc(db, "bares", b.id), { nome: v("#eNome"), donoNome: v("#eDono"), plano: v("#ePlano"),
+        mensalidade: cents(parseNum(v("#eValor"))), vencimento: v("#eVenc") || null, obs: v("#eObs") });
+      toast("Salvo", "ok"); md.fechar();
+    } catch (e) { toast(erroMsg(e), "erro"); }
+  };
+}
+
+/* ---------- Instalável (PWA) ---------- */
+(function manifesto() {
+  const ic = s => { const c = document.createElement("canvas"); c.width = c.height = s; const x = c.getContext("2d");
+    x.fillStyle = "#111214"; x.fillRect(0, 0, s, s); x.font = `${Math.round(s * .5)}px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif`;
+    x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("🛠️", s / 2, s * .54); return c.toDataURL("image/png"); };
+  const base = location.href.split("#")[0].split("?")[0], scope = base.substring(0, base.lastIndexOf("/") + 1);
+  const i192 = ic(192), i512 = ic(512);
+  const m = { name: "Bar · Administrador", short_name: "Admin Bar", id: scope, start_url: base, scope, display: "standalone",
+    background_color: "#111214", theme_color: "#111214",
+    icons: [{ src: i192, sizes: "192x192", type: "image/png" }, { src: i512, sizes: "512x512", type: "image/png" }] };
+  const l = document.createElement("link"); l.rel = "manifest"; l.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: "application/manifest+json" }));
+  document.head.appendChild(l);
+})();
+</script>
+</body>
+</html>
