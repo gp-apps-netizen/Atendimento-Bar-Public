@@ -229,7 +229,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.2";
+const VERSAO = "3.3";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -701,7 +701,7 @@ function iniciar() {
     S.mesas = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.numero - b.numero); S.mesasOk = true; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(query(col(C.pedidos), where("aberto", "==", true)), s => {
-    const peds = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !String(p.mesaId).startsWith("dlv_"));   // pedidos online ficam só na central
+    const peds = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !/^(dlv|balcao)_/.test(String(p.mesaId)));   // pedidos online e do balcão ficam só na central
     if (S.statusAnt) {
       const novos = peds.filter(p => p.status === "pronto" && S.statusAnt[p.id] && S.statusAnt[p.id] !== "pronto" && p.garcomEmail === S.perfil.email);
       if (novos.length) { beep(3); toast("🔔 Pronto: " + [...new Set(novos.map(p => "Mesa " + p.mesaNumero))].join(", "), "ok"); }
