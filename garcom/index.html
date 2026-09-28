@@ -135,6 +135,15 @@ table.t td.r,table.t th.r{text-align:right}
 .brand b,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top>.row{flex:none;gap:6px}
 @media(max-width:420px){.top .icon-btn{width:34px;height:34px;font-size:.95rem}.brand .logo{width:32px;height:32px;font-size:17px}.exp-pill{padding:6px 9px;font-size:.75rem}}
+.brand b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2}
+.brand .logo{overflow:hidden;flex:none}.brand .logo.img{background:none}.brand .logo img,.logo-prev img{width:100%;height:100%;object-fit:cover;display:block}
+@media(max-width:520px){.top{flex-wrap:wrap;row-gap:8px}.top>.brand{flex:1 1 calc(100% - 50px)}.top>.row{flex:1 1 100%;justify-content:flex-end}.top>.row>.exp-pill{margin-right:auto}}
+.ic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;margin-top:12px}
+.ic-grid button{height:44px;border-radius:10px;background:var(--s2);border:1px solid var(--bd);font-size:22px}
+.ic-grid button.on{border-color:var(--ac);background:var(--s3)}
+.logo-prev{width:52px;height:52px;border-radius:14px;background:var(--ac);display:grid;place-items:center;font-size:28px;flex:none;overflow:hidden}
+.logo-prev.img{background:none}
+
 .thumb{width:46px;height:46px;border-radius:10px;object-fit:cover;background:var(--s3);flex:none;display:grid;place-items:center;color:var(--mu);font-size:1.2rem}
 .foto-edit{display:flex;gap:12px;align-items:center;margin-top:6px}
 .foto-edit .prev{width:96px;height:96px;border-radius:14px;object-fit:cover;background:var(--s2);border:1px dashed var(--bd);display:grid;place-items:center;color:var(--mu);font-size:2rem;flex:none}
@@ -220,7 +229,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.0";
+const VERSAO = "3.2";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -251,6 +260,14 @@ async function resolverBar(email) {
   if (!id) return null;
   const b = await getDoc(doc(db, "bares", id));
   return b.exists() ? { id, ...b.data() } : null;
+}
+const ICONE_APP = "🍺";
+/* ---------- Ícone do bar (emoji ou imagem, salvo em config/geral) ---------- */
+const LOGO_OK = s => typeof s === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(s);
+function htmlIcone(cfg, padrao) { return LOGO_OK(cfg?.logo) ? `<img src="${cfg.logo}" alt="">` : esc(cfg?.icone || padrao); }
+function aplicarIcone(cfg) {
+  const el = $(".brand .logo"); if (!el) return;
+  el.innerHTML = htmlIcone(cfg, ICONE_APP); el.classList.toggle("img", LOGO_OK(cfg?.logo));
 }
 function aviso(ico, titulo, texto, extra = "") {
   $("#avIco").textContent = ico; $("#avTit").textContent = titulo; $("#avTxt").innerHTML = texto; $("#avExtra").innerHTML = extra;
@@ -677,7 +694,7 @@ async function verificar(u) {
 
 function iniciar() {
   S.unsub.push(onSnapshot(doc(db, C.config, "geral"), d => {
-    S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) };
+    S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) }; aplicarIcone(S.cfg);
     S.cfgOk = true; $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Garçom"; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.mesas), s => {
