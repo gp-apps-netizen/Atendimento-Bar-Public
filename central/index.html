@@ -142,6 +142,7 @@ table.t td.r,table.t th.r{text-align:right}
 .chamado.link{background:#0f3a28;border-color:var(--ok)}
 .chamado.dlv{background:#2b2144;border-color:var(--prep)}
 .exp-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 11px;font-size:.8rem;font-weight:600;border:1px solid var(--bd);background:var(--s2);white-space:nowrap}
+.alerta.vermelho{background:#3a1616;border-color:#6b2a2a}.alerta.verde{background:#0f3a28;border-color:var(--ok)}.alerta.amarelo{background:#3a2f12;border-color:#6b5316}.st-conta{background:#0c1f33;color:var(--info)}
 .exp-pill.on{background:#0f3a28;border-color:var(--ok);color:#c9f5df}.exp-pill.off{background:#3a1616;border-color:#6b2a2a;color:#ffd0cf}
 .exp-faixa{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#3a1616;border:1px solid #6b2a2a;color:#ffd0cf;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:.9rem}
 .top{gap:8px}
@@ -161,7 +162,7 @@ table.t td.r,table.t th.r{text-align:right}
 .cor-grid label.cor-livre{height:44px;border-radius:12px;border:2px dashed var(--bd);display:grid;place-items:center;font-size:20px;margin:0;cursor:pointer;position:relative;overflow:hidden}
 .cor-grid label.cor-livre input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .fundo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:10px}
-.fundo-grid button{border-radius:12px;padding:10px 8px;border:2px solid var(--bd);font-size:.8rem;text-align:left;color:#ececec}
+.fundo-grid button{border-radius:12px;padding:10px 8px;border:2px solid var(--bd);font-size:.8rem;text-align:left}
 .fundo-grid button i{display:flex;gap:3px;margin-bottom:6px}.fundo-grid button i b{width:14px;height:14px;border-radius:4px;display:block}
 .fundo-grid button.on{border-color:var(--ac)}
 .tema-prev{border-radius:12px;padding:12px;border:1px solid var(--bd);background:var(--bg);margin-top:12px}
@@ -198,6 +199,24 @@ table.t td.r,table.t th.r{text-align:right}
   .muted,.kpi small,table.t th{color:#444}
   table.t td,table.t th{border-color:#ccc}
 }
+
+/* ---------- tema claro (fundo branco) ---------- */
+html.claro{color-scheme:light}
+html.claro .top{background:rgba(255,255,255,.94)}
+html.claro .tabs{background:rgba(255,255,255,.97);box-shadow:0 -2px 10px rgba(0,0,0,.05)}
+html.claro .card,html.claro .kpi,html.claro .mesa{box-shadow:0 1px 3px rgba(0,0,0,.06)}
+html.claro .modal-bg{background:rgba(20,22,28,.35)}
+html.claro .btn.danger{border-color:#f0b4b4}
+html.claro .st-prep,html.claro .chamado.dlv{background:#efe8fd}
+html.claro .st-pronto,html.claro .chamado.link,html.claro #toast.ok{background:#e1f5eb}
+html.claro .st-canc,html.claro .chamado,html.claro #toast.erro{background:#fdeaea}
+html.claro .alerta,html.claro .chamado.conta,html.claro .st-conta{background:#e5effb}
+html.claro .alerta.vermelho{background:#fdeaea;border-color:#f0b4b4}
+html.claro .alerta.verde{background:#e1f5eb}
+html.claro .alerta.amarelo{background:#fff3d9;border-color:#efd08f}
+html.claro .mesa.fechamento{background:linear-gradient(160deg,#e5effb,var(--s1) 60%)}
+html.claro .exp-pill.on{background:#e1f5eb;color:#0c6a43}
+html.claro .exp-pill.off,html.claro .exp-faixa{background:#fdeaea;border-color:#f0b4b4;color:#a32222}
 </style>
 </head>
 <body>
@@ -322,7 +341,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.4";
+const VERSAO = "3.5";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -361,8 +380,12 @@ const FUNDOS = {
   noite: { nome: "Azul-noite", bg: "#0d1220", s1: "#151b2b", s2: "#1c2335", s3: "#262f46", bd: "#2d3750" },
   cafe: { nome: "Café", bg: "#15110e", s1: "#1f1915", s2: "#28211b", s3: "#332a23", bd: "#3c322a" },
   mata: { nome: "Verde-mata", bg: "#0d1512", s1: "#141e1a", s2: "#1b2722", s3: "#24322c", bd: "#2b3a33" },
-  vinho: { nome: "Vinho", bg: "#170e12", s1: "#21151a", s2: "#2a1b22", s3: "#35232c", bd: "#3e2a33" }
+  vinho: { nome: "Vinho", bg: "#170e12", s1: "#21151a", s2: "#2a1b22", s3: "#35232c", bd: "#3e2a33" },
+  preto: { nome: "Preto", bg: "#000000", s1: "#0e0e10", s2: "#17171a", s3: "#222226", bd: "#2a2a2f" },
+  branco: { nome: "Branco", claro: true, bg: "#f3f4f6", s1: "#ffffff", s2: "#eef0f3", s3: "#e1e4e9", bd: "#d5d8de" }
 };
+const TONS_CLARO = { tx: "#17181b", mu: "#5f626a", ok: "#15a068", er: "#d63a3a", info: "#1f74d6", prep: "#7a4bd6" };
+const escurecer = (h, k) => rgbHex(hexRgb(h).map(v => v * (1 - k)));
 const COR_PADRAO = "#f5a524";
 const corOk = c => /^#[0-9a-f]{6}$/i.test(c || "");
 const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -372,7 +395,9 @@ const luz = h => { const [r, g, b] = hexRgb(h).map(v => { v /= 255; return v <= 
 function aplicarTema(cfg) {
   const s = document.documentElement.style, f = FUNDOS[cfg?.fundo] || FUNDOS.escuro, ac = corOk(cfg?.cor) ? cfg.cor : COR_PADRAO;
   ["bg", "s1", "s2", "s3", "bd"].forEach(k => s.setProperty("--" + k, f[k]));
-  s.setProperty("--ac", ac); s.setProperty("--ac2", clarear(ac, .28)); s.setProperty("--acx", luz(ac) > .33 ? "#15120a" : "#ffffff");
+  document.documentElement.classList.toggle("claro", !!f.claro);
+  Object.entries(TONS_CLARO).forEach(([k, v]) => f.claro ? s.setProperty("--" + k, v) : s.removeProperty("--" + k));
+  s.setProperty("--ac", ac); s.setProperty("--ac2", f.claro ? escurecer(ac, .32) : clarear(ac, .28)); s.setProperty("--acx", luz(ac) > .33 ? "#15120a" : "#ffffff");
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", f.bg);
 }
 const ICONE_APP = "🧾";
@@ -1517,7 +1542,7 @@ function renderCores() {
     <div class="cor-grid">${CORES.map(([n, h]) => `<button title="${n}" data-cor="${h}" class="${h === cor ? "on" : ""}" style="background:${h}"></button>`).join("")}
       <label class="cor-livre ${livre ? "on" : ""}" title="Outra cor" style="${livre ? `background:${cor};border:2px solid var(--tx)` : ""}">🎨<input type="color" id="corLivre" value="${cor}"></label></div>
     <label style="margin-top:14px">Fundo</label>
-    <div class="fundo-grid">${Object.entries(FUNDOS).map(([k, f]) => `<button data-fundo="${k}" class="${k === fundo ? "on" : ""}" style="background:${f.bg}"><i><b style="background:${f.s1}"></b><b style="background:${f.s3}"></b><b style="background:${cor}"></b></i>${f.nome}</button>`).join("")}</div>
+    <div class="fundo-grid">${Object.entries(FUNDOS).map(([k, f]) => `<button data-fundo="${k}" class="${k === fundo ? "on" : ""}" style="background:${f.bg};color:${f.claro ? "#17181b" : "#ececec"}"><i><b style="background:${f.s1}"></b><b style="background:${f.s3}"></b><b style="background:${cor}"></b></i>${f.nome}</button>`).join("")}</div>
     <div class="tema-prev"><div class="row between"><b>Prévia</b><span class="badge st-rec">Recebido</span></div>
       <div class="row" style="margin-top:10px;gap:8px"><span class="btn sm">Botão principal</span><span class="btn ghost sm">Secundário</span></div></div>
     ${S.cfg.cor || S.cfg.fundo ? `<button class="btn ghost block sm" id="corPadrao" style="margin-top:10px">Voltar às cores padrão</button>` : ""}`;
@@ -1668,9 +1693,9 @@ function renderDelivery() {
   };
   const g = k => l.filter(d => d.status === k);
   $("#t-delivery").innerHTML = `
-    ${!expAberto(cfg) ? `<div class="alerta" style="background:#3a1616;border-color:#6b2a2a">🔴 Expediente fechado — o cliente vê “Fechado” e não consegue pedir. Abra pelo botão no topo.</div>`
-      : cfg.deliveryAberto ? `<div class="alerta" style="background:#0f3a28;border-color:var(--ok)">🟢 Recebendo pedidos online${cfg.fazEntrega !== false ? " · retirada e entrega" : " · só retirada"}</div>`
-      : `<div class="alerta" style="background:#3a2f12;border-color:#6b5316">⏸️ Pedidos online desligados — ligue em Mais → Configurações → Cardápio online.</div>`}
+    ${!expAberto(cfg) ? `<div class="alerta vermelho">🔴 Expediente fechado — o cliente vê “Fechado” e não consegue pedir. Abra pelo botão no topo.</div>`
+      : cfg.deliveryAberto ? `<div class="alerta verde">🟢 Recebendo pedidos online${cfg.fazEntrega !== false ? " · retirada e entrega" : " · só retirada"}</div>`
+      : `<div class="alerta amarelo">⏸️ Pedidos online desligados — ligue em Mais → Configurações → Cardápio online.</div>`}
     <div class="row" style="margin-bottom:6px"><button class="btn ghost sm grow" id="dlvCp">Copiar link do cardápio</button><button class="btn ok sm grow" id="dlvZap">Enviar pelo WhatsApp</button></div>
     <h3>Aguardando confirmação (${g("aguardando").length})</h3><div class="list">${g("aguardando").map(card).join("") || `<div class="empty">Nenhum pedido novo.</div>`}</div>
     <h3>Em preparo (${g("preparando").length})</h3><div class="list">${g("preparando").map(card).join("") || `<div class="empty">Nada em preparo.</div>`}</div>
