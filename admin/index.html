@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111214">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Bar · Administrador</title>
+<title>Administrador Apps</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -49,6 +49,7 @@ main{max-width:640px;margin:0 auto;padding:16px}
 .bar-card .nome{font-family:'Space Grotesk';font-weight:600;font-size:1.05rem}
 .seg{display:flex;background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:3px;gap:3px;margin-bottom:10px}
 .seg button{flex:1;padding:8px;border-radius:8px;color:var(--mu);font-size:.85rem}.seg button.on{background:var(--s3);color:var(--tx)}
+.seg.apps{margin-bottom:14px}.seg.apps button{padding:11px;font-size:.95rem;font-weight:600}.seg.apps button.on{background:var(--ac);color:var(--acx)}
 .center{min-height:75vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px}
 .hero{font-size:52px}
 .empty{color:var(--mu);text-align:center;padding:28px 10px}
@@ -63,14 +64,14 @@ main{max-width:640px;margin:0 auto;padding:16px}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><b>Administrador</b><small id="quem">Atendimento de Bar</small></div>
+  <div class="brand"><b>Administrador Apps</b><small id="quem">Bares e salões</small></div>
   <button class="btn ghost sm hidden" id="btnSair">Sair</button>
 </header>
 <main>
   <section id="t-login" class="center hidden">
     <div class="hero">🛠️</div>
     <h2>Painel do administrador</h2>
-    <p class="muted">Cadastro de bares, mensalidades e bloqueios.</p>
+    <p class="muted">Cadastro de bares e salões, mensalidades e bloqueios.</p>
     <div style="width:100%;max-width:340px;text-align:left">
       <label>E-mail</label><input id="lgEmail" type="email" inputmode="email" autocomplete="username">
       <label>Senha</label><input id="lgSenha" type="password" autocomplete="current-password">
@@ -86,14 +87,16 @@ main{max-width:640px;margin:0 auto;padding:16px}
   </section>
 
   <section id="t-painel" class="hidden">
+    <div class="seg apps" id="appSeg"><button data-a="bar" class="on">🍺 Bares</button><button data-a="salao">✂️ Salões</button></div>
     <div class="kpis">
-      <div class="kpi"><small>Bares ativos</small><div class="num" id="kAtivos">0</div></div>
+      <div class="kpi"><small id="lAtivos">Bares ativos</small><div class="num" id="kAtivos">0</div></div>
       <div class="kpi"><small>Receita mensal</small><div class="num" id="kReceita">R$ 0</div></div>
       <div class="kpi"><small>Vencidos</small><div class="num" id="kVencidos">0</div></div>
       <div class="kpi"><small>Suspensos</small><div class="num" id="kSuspensos">0</div></div>
     </div>
+    <p class="small muted" id="kTotal" style="margin:2px 2px 0"></p>
     <button class="btn block" id="btnNovo" style="margin:10px 0 4px">+ Novo bar</button>
-    <h3>Bares</h3>
+    <h3 id="hLista">Bares</h3>
     <div class="seg" id="filtro"><button data-f="todos" class="on">Todos</button><button data-f="ativos">Ativos</button><button data-f="vencidos">Vencidos</button><button data-f="suspensos">Suspensos</button></div>
     <div id="lista"></div>
   </section>
@@ -115,7 +118,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "1.3";
+const VERSAO = "2.0";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -174,8 +177,31 @@ const erroMsg = e => ({
   "permission-denied": "Sem permissão (confira as regras do Firestore)"
 }[e.code] || ("Erro: " + (e.code || e.message)));
 
+/* ---------- Tipos de app gerenciados ---------- */
+const SALAO_BASE = "https://gp-apps-netizen.github.io/Agenda-Salao/";
+const TIPOS = {
+  bar: {
+    col: "bares", users: "usuarios", campo: "barId", nome: "Bar", nomeMin: "bar", plural: "Bares", pluralMin: "bares", o: "o",
+    exemplo: "Ex.: Boteco do Zé", idEx: "boteco-do-ze",
+    subs: ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos", "estoque"],
+    perda: "cardápio, mesas, pedidos, relatórios, clientes e equipe, e o dono e os garçons perdem o acesso",
+  },
+  salao: {
+    col: "saloes", users: "usuariosSalao", campo: "saloId", nome: "Salão", nomeMin: "salão", plural: "Salões", pluralMin: "salões", o: "o",
+    exemplo: "Ex.: Studio Bella", idEx: "studio-bella",
+    subs: ["config", "servicos", "profissionais", "pacotes", "ocupados", "agendamentos", "clientes", "clientePacotes", "privado"],
+    perda: "agenda, clientes, serviços, pacotes, equipe e relatórios, e o dono perde o acesso",
+  },
+};
+const tp = () => TIPOS[S.app];
+
 /* ---------- Links de cada bar ---------- */
 const raiz = new URL("../", location.href.split("#")[0].split("?")[0]);
+const linksSalao = id => ({
+  admin: new URL("admin/", SALAO_BASE).href,
+  agenda: new URL(`?s=${encodeURIComponent(id)}`, SALAO_BASE).href,
+  suporte: new URL(`admin/?salao=${encodeURIComponent(id)}`, SALAO_BASE).href
+});
 const links = id => ({
   central: new URL("central/", raiz).href,
   garcom: new URL("garcom/", raiz).href,
@@ -184,7 +210,8 @@ const links = id => ({
 });
 
 /* ---------- Estado ---------- */
-const S = { bares: [], filtro: "todos", unsub: null };
+const S = { bares: [], saloes: [], app: "bar", filtro: "todos", unsub: null, unsub2: null };
+const lista = () => S.app === "bar" ? S.bares : S.saloes;
 
 function mostrar(t) {
   $$("main > section").forEach(s => s.classList.add("hidden")); $("#t-" + t).classList.remove("hidden");
@@ -205,7 +232,7 @@ $("#btnTrocar").onclick = () => signOut(auth);
 $("#btnSair").onclick = async () => { if (await confirmar("Sair do painel neste aparelho?", "Sair")) signOut(auth); };
 
 onAuthStateChanged(auth, u => {
-  S.unsub?.(); S.unsub = null;
+  S.unsub?.(); S.unsub = null; S.unsub2?.(); S.unsub2 = null;
   if (!u) return mostrar("login");
   if ((u.email || "").toLowerCase() !== SUPER) return mostrar("semacesso");
   $("#quem").textContent = u.email + " · v" + VERSAO;
@@ -214,6 +241,10 @@ onAuthStateChanged(auth, u => {
     S.bares = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
     render();
   }, e => { console.error(e); toast(erroMsg(e), "erro"); });
+  S.unsub2 = onSnapshot(collection(db, "saloes"), s => {
+    S.saloes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+    render();
+  }, e => { console.error(e); toast("Salões: " + erroMsg(e), "erro"); });
 });
 
 /* ---------- Lista ---------- */
@@ -228,20 +259,27 @@ function situacao(b) {
   return `<span class="badge b-ok">Em dia</span>`;
 }
 function render() {
-  const ativos = S.bares.filter(b => b.status === "ativo");
+  const T = tp(), L0 = lista();
+  $("#lAtivos").textContent = `${T.plural} ativos`;
+  $("#btnNovo").textContent = `+ Novo ${T.nomeMin}`;
+  $("#hLista").textContent = T.plural;
+  const rec = arr => arr.filter(b => b.status === "ativo" && b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0);
+  $("#kTotal").textContent = `Receita mensal de todos os apps: ${brl(rec(S.bares) + rec(S.saloes))}`;
+  const ativos = L0.filter(b => b.status === "ativo");
   $("#kAtivos").textContent = ativos.length;
   $("#kReceita").textContent = brl(ativos.filter(b => b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0));
   $("#kVencidos").textContent = ativos.filter(vencido).length;
-  $("#kSuspensos").textContent = S.bares.length - ativos.length;
-  const l = S.bares.filter(b => S.filtro === "todos" || (S.filtro === "ativos" && b.status === "ativo")
+  $("#kSuspensos").textContent = L0.length - ativos.length;
+  const l = L0.filter(b => S.filtro === "todos" || (S.filtro === "ativos" && b.status === "ativo")
     || (S.filtro === "vencidos" && b.status === "ativo" && vencido(b)) || (S.filtro === "suspensos" && b.status !== "ativo"));
   $("#lista").innerHTML = l.map(b => `<button class="card bar-card" data-bar="${esc(b.id)}">
       <div class="row between"><span class="nome">${esc(b.nome || b.id)}</span>${situacao(b)}</div>
       <div class="small muted" style="margin-top:4px">${esc(b.id)} · ${esc(b.donoEmail || "")}</div>
       ${b.plano !== "proprio" ? `<div class="small" style="margin-top:4px">${brl(b.mensalidade)}/mês · vence ${fmtDia(b.vencimento)}</div>` : ""}
-    </button>`).join("") || `<div class="empty">${S.bares.length ? "Nenhum bar neste filtro." : "Nenhum bar cadastrado."}</div>`;
+    </button>`).join("") || `<div class="empty">${L0.length ? `Nenhum ${T.nomeMin} neste filtro.` : `Nenhum ${T.nomeMin} cadastrado.`}</div>`;
   $$("[data-bar]").forEach(x => x.onclick = () => detalhes(x.dataset.bar));
 }
+$$("#appSeg button").forEach(b => b.onclick = () => { S.app = b.dataset.a; $$("#appSeg button").forEach(x => x.classList.toggle("on", x === b)); render(); });
 $$("#filtro button").forEach(b => b.onclick = () => { S.filtro = b.dataset.f; $$("#filtro button").forEach(x => x.classList.toggle("on", x === b)); render(); });
 
 /* ---------- Novo bar ---------- */
@@ -254,10 +292,11 @@ async function criarLogin(email, senha) {
   await signOut(a2);
 }
 $("#btnNovo").onclick = () => {
+  const T = tp(), ehSalao = S.app === "salao";
   const venc = maisMeses(hoje(), 1);
-  const md = abrirModal(`<div class="mh"><h2>Novo bar</h2><button class="icon-btn" data-fechar>✕</button></div>
-    <label>Nome do bar *</label><input id="nNome" placeholder="Ex.: Boteco do Zé">
-    <label>Identificador * (vai no link do cardápio)</label><input id="nId" autocapitalize="off" placeholder="boteco-do-ze">
+  const md = abrirModal(`<div class="mh"><h2>Novo ${T.nomeMin}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <label>Nome do ${T.nomeMin} *</label><input id="nNome" placeholder="${T.exemplo}">
+    <label>Identificador * (vai no link ${ehSalao ? "de agendamento" : "do cardápio"})</label><input id="nId" autocapitalize="off" placeholder="${T.idEx}">
     <h3>Responsável</h3>
     <label>Nome *</label><input id="nDonoNome">
     <label>E-mail (será o login) *</label><input id="nEmail" type="email" inputmode="email" autocapitalize="off">
@@ -266,42 +305,63 @@ $("#btnNovo").onclick = () => {
     <div class="row"><div class="grow"><label>Mensalidade (R$)</label><input id="nValor" inputmode="decimal" placeholder="99,90"></div>
       <div class="grow"><label>1º vencimento</label><input id="nVenc" type="date" value="${venc}"></div></div>
     <label>Observações</label><textarea id="nObs" rows="2" placeholder="Telefone, endereço, combinado…"></textarea>
-    <button class="btn block" id="nOk" style="margin-top:16px">Criar bar e login</button>`);
+    <button class="btn block" id="nOk" style="margin-top:16px">Criar ${T.nomeMin} e login</button>`);
   let mexeu = false;
   $("#nId", md.el).oninput = () => { mexeu = true; };
   $("#nNome", md.el).oninput = () => { if (!mexeu) $("#nId", md.el).value = slug($("#nNome", md.el).value); };
   $("#nOk", md.el).onclick = async () => {
     const v = id => $(id, md.el).value.trim();
     const nome = v("#nNome"), id = v("#nId"), donoNome = v("#nDonoNome"), email = v("#nEmail").toLowerCase(), senha = v("#nSenha");
-    if (!nome || !donoNome) return toast("Preencha o nome do bar e do responsável", "erro");
+    if (!nome || !donoNome) return toast(`Preencha o nome do ${T.nomeMin} e do responsável`, "erro");
     if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return toast("Identificador: 3 a 30 caracteres, só a-z, 0-9 e hífen", "erro");
     if (!emailOk(email)) return toast("E-mail inválido", "erro");
-    if (email === SUPER) return toast("Use o e-mail do dono do bar, não o seu", "erro");
+    if (email === SUPER) return toast(`Use o e-mail do dono do ${T.nomeMin}, não o seu`, "erro");
     if (senha.length < 6) return toast("Senha com pelo menos 6 caracteres", "erro");
     const bt = $("#nOk", md.el); bt.disabled = true; bt.textContent = "Criando…";
-    const volta = msg => { bt.disabled = false; bt.textContent = "Criar bar e login"; toast(msg, "erro"); };
+    const volta = msg => { bt.disabled = false; bt.textContent = `Criar ${T.nomeMin} e login`; toast(msg, "erro"); };
     try {
-      if ((await getDoc(doc(db, "bares", id))).exists()) return volta("Já existe um bar com esse identificador");
-      const u = await getDoc(doc(db, "usuarios", email));
-      if (u.exists()) return volta(`Este e-mail já está no bar “${u.data().barId}”`);
+      if ((await getDoc(doc(db, T.col, id))).exists()) return volta(`Já existe um ${T.nomeMin} com esse identificador`);
+      const u = await getDoc(doc(db, T.users, email));
+      if (u.exists()) return volta(`Este e-mail já está no ${T.nomeMin} “${u.data()[T.campo]}”`);
       let senhaNova = true;
       try { await criarLogin(email, senha); }
       catch (e) { if (e.code !== "auth/email-already-in-use") return volta(erroMsg(e)); senhaNova = false; }
       const b = writeBatch(db);
-      b.set(doc(db, "bares", id), { nome, donoEmail: email, donoNome, status: "ativo", plano: "mensal",
+      b.set(doc(db, T.col, id), { nome, donoEmail: email, donoNome, status: "ativo", plano: "mensal",
         mensalidade: cents(parseNum(v("#nValor"))), vencimento: v("#nVenc") || null, obs: v("#nObs"), criadoEm: serverTimestamp() });
-      b.set(doc(db, "usuarios", email), { barId: id });
-      b.set(doc(db, `bares/${id}/config`, "geral"), { nomeBar: nome, taxaServico: 10 });
-      b.set(doc(db, `bares/${id}/garcons`, email), { nome: donoNome, ativo: true, central: true });
+      b.set(doc(db, T.users, email), { [T.campo]: id });
+      if (ehSalao) {
+        b.set(doc(db, `saloes/${id}/config`, "salao"), { nome });
+      } else {
+        b.set(doc(db, `bares/${id}/config`, "geral"), { nomeBar: nome, taxaServico: 10 });
+        b.set(doc(db, `bares/${id}/garcons`, email), { nome: donoNome, ativo: true, central: true });
+      }
       await b.commit();
-      md.fechar(); toast("Bar criado!", "ok");
-      boasVindas({ id, nome, donoNome, email }, senhaNova ? senha : null);
+      md.fechar(); toast(`${T.nome} criado!`, "ok");
+      boasVindas({ id, nome, donoNome, email }, senhaNova ? senha : null, S.app);
     } catch (e) { console.error(e); volta(erroMsg(e)); }
   };
 };
 
 /* Mensagem pronta para mandar ao dono */
-function textoBoasVindas(b, senha) {
+function textoBoasVindas(b, senha, app) {
+  if (app === "salao") {
+    const L = linksSalao(b.id);
+    return `Olá, ${b.donoNome || ""}! A agenda do ${b.nome} está pronta. ✂️
+
+*Área do salão* (agenda, clientes, pacotes, caixa e comissões):
+${L.admin}
+
+*Link de agendamento para as clientes:*
+${L.agenda}
+
+*Login:* ${b.email || b.donoEmail}
+${senha ? `*Senha:* ${senha}\n(troque em "Esqueci a senha" quando quiser)` : "*Senha:* a mesma que você já usa"}
+
+Primeiros passos: entre na área do salão, toque em "Carregar exemplo" ou cadastre serviços, pacotes e a equipe, e preencha os dados do salão em Ajustes.
+
+Abra os links no Chrome e toque em "Adicionar à tela inicial" para instalar.`;
+  }
   const L = links(b.id);
   return `Olá, ${b.donoNome || ""}! O sistema do ${b.nome} está pronto. 🍺
 
@@ -318,8 +378,8 @@ Primeiros passos na Central: cadastre o cardápio, as mesas e os garçons. O lin
 
 Abra os links no Chrome e toque em "Adicionar à tela inicial" para instalar.`;
 }
-function boasVindas(b, senha) {
-  const txt = textoBoasVindas(b, senha);
+function boasVindas(b, senha, app = S.app) {
+  const txt = textoBoasVindas(b, senha, app);
   const md = abrirModal(`<div class="mh"><h2>Enviar acesso ao dono</h2><button class="icon-btn" data-fechar>✕</button></div>
     <p class="small muted" style="margin-bottom:8px">${senha ? "Anote a senha: ela não fica salva em lugar nenhum." : "Este e-mail já tinha login, a senha antiga foi mantida."}</p>
     <textarea rows="12" readonly>${esc(txt)}</textarea>
@@ -330,8 +390,9 @@ function boasVindas(b, senha) {
 
 /* ---------- Detalhes de um bar ---------- */
 function detalhes(id) {
-  const b = S.bares.find(x => x.id === id); if (!b) return;
-  const L = links(id), proprio = b.plano === "proprio";
+  const T = tp(), ehSalao = S.app === "salao";
+  const b = lista().find(x => x.id === id); if (!b) return;
+  const L = ehSalao ? linksSalao(id) : links(id), proprio = b.plano === "proprio";
   const md = abrirModal(`<div class="mh"><h2>${esc(b.nome || id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <div style="margin-bottom:10px">${situacao(b)}</div>
     <div class="card">
@@ -347,17 +408,20 @@ function detalhes(id) {
       <button class="btn ghost grow sm" id="dEnviar">Reenviar acesso</button>
     </div>
     <h3>Links</h3>
-    <div class="small muted">Cardápio online (clientes)</div><div class="link">${esc(L.cardapio)}</div>
-    <div class="row"><button class="btn ghost grow sm" id="dCpCard">Copiar cardápio</button><a class="btn ghost grow sm" href="${esc(L.suporte)}" target="_blank" style="text-decoration:none">Abrir central (suporte)</a></div>
+    ${ehSalao
+      ? `<div class="small muted">Agendamento online (clientes)</div><div class="link">${esc(L.agenda)}</div>
+    <div class="row"><button class="btn ghost grow sm" id="dCpCard">Copiar link</button><a class="btn ghost grow sm" href="${esc(L.suporte)}" target="_blank" style="text-decoration:none">Abrir salão (suporte)</a></div>`
+      : `<div class="small muted">Cardápio online (clientes)</div><div class="link">${esc(L.cardapio)}</div>
+    <div class="row"><button class="btn ghost grow sm" id="dCpCard">Copiar cardápio</button><a class="btn ghost grow sm" href="${esc(L.suporte)}" target="_blank" style="text-decoration:none">Abrir central (suporte)</a></div>`}
     <h3>Acesso</h3>
     ${b.status === "ativo"
-      ? `<button class="btn danger block" id="dStatus">Suspender acesso</button><p class="small muted" style="margin-top:6px">Dono e garçons veem “Acesso suspenso”. Os dados ficam guardados.</p>`
+      ? `<button class="btn danger block" id="dStatus">Suspender acesso</button><p class="small muted" style="margin-top:6px">${ehSalao ? "O dono vê “Acesso suspenso” e o link de agendamento sai do ar." : "Dono e garçons veem “Acesso suspenso”."} Os dados ficam guardados.</p>`
       : `<button class="btn block" id="dStatus">Reativar acesso</button>`}
     <h3>Zona de perigo</h3>
     ${b.plano === "proprio"
-      ? `<p class="small muted">Este é o seu bar (plano Próprio) e não pode ser excluído por aqui.</p>`
-      : `<button class="btn danger block" id="dExcluir">🗑️ Excluir bar e todos os dados</button>`}`);
-  $("#dCpCard", md.el).onclick = () => copiar(L.cardapio);
+      ? `<p class="small muted">Este é o seu ${T.nomeMin} (plano Próprio) e não pode ser excluído por aqui.</p>`
+      : `<button class="btn danger block" id="dExcluir">🗑️ Excluir ${T.nomeMin} e todos os dados</button>`}`);
+  $("#dCpCard", md.el).onclick = () => copiar(ehSalao ? L.agenda : L.cardapio);
   $("#dEnviar", md.el).onclick = () => boasVindas({ ...b, email: b.donoEmail }, null);
   $("#dEditar", md.el).onclick = () => { md.fechar(); editar(b); };
   $("#dPago", md.el)?.addEventListener("click", async () => {
@@ -365,7 +429,7 @@ function detalhes(id) {
     const novo = maisMeses(base, 1);
     if (!await confirmar(`Registrar pagamento de <b>${brl(b.mensalidade)}</b>?<br>Próximo vencimento: <b>${fmtDia(novo)}</b>`, "Registrar")) return;
     try {
-      await updateDoc(doc(db, "bares", id), { vencimento: novo, ultimoPagamento: hoje(), ...(b.status !== "ativo" ? { status: "ativo" } : {}) });
+      await updateDoc(doc(db, T.col, id), { vencimento: novo, ultimoPagamento: hoje(), ...(b.status !== "ativo" ? { status: "ativo" } : {}) });
       toast("Pagamento registrado", "ok"); md.fechar();
     } catch (e) { toast(erroMsg(e), "erro"); }
   });
@@ -373,18 +437,18 @@ function detalhes(id) {
   $("#dStatus", md.el).onclick = async () => {
     const suspender = b.status === "ativo";
     if (suspender && !await confirmar(`Suspender o acesso de <b>${esc(b.nome)}</b>?`, "Suspender", true)) return;
-    try { await updateDoc(doc(db, "bares", id), { status: suspender ? "bloqueado" : "ativo" }); toast(suspender ? "Acesso suspenso" : "Acesso reativado", "ok"); md.fechar(); }
+    try { await updateDoc(doc(db, T.col, id), { status: suspender ? "bloqueado" : "ativo" }); toast(suspender ? "Acesso suspenso" : "Acesso reativado", "ok"); md.fechar(); }
     catch (e) { toast(erroMsg(e), "erro"); }
   };
 }
 
 /* ---------- Excluir bar: apaga bares/{id}, todas as subcoleções e os vínculos da equipe ---------- */
-const SUBCOLECOES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos", "estoque"];
 function excluirBar(b) {
+  const T = tp();
   const md = abrirModal(`<div class="mh"><h2>Excluir ${esc(b.nome || b.id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <div class="card" style="border-color:var(--er)">
       <b style="color:var(--er)">Isto não tem volta.</b>
-      <p class="small" style="margin-top:6px">Serão apagados o cadastro do bar, cardápio, mesas, pedidos, relatórios, clientes e equipe, e o dono e os garçons perdem o acesso.</p>
+      <p class="small" style="margin-top:6px">Serão apagados o cadastro do ${T.nomeMin}, ${T.perda}.</p>
       <p class="small muted" style="margin-top:6px">Se a ideia é só bloquear por falta de pagamento, use <b>Suspender acesso</b>: os dados ficam guardados.</p>
     </div>
     <label>Para confirmar, digite o identificador: <b style="color:var(--tx)">${esc(b.id)}</b></label>
@@ -399,9 +463,9 @@ function excluirBar(b) {
     const emails = new Set([b.donoEmail].filter(Boolean));
     try {
       let total = 0;
-      for (const n of SUBCOLECOES) {
+      for (const n of T.subs) {
         info(`Apagando ${n}…`);
-        const snap = await getDocs(collection(db, `bares/${b.id}/${n}`));
+        const snap = await getDocs(collection(db, `${T.col}/${b.id}/${n}`));
         if (n === "garcons") snap.docs.forEach(d => emails.add(d.id));
         for (let i = 0; i < snap.docs.length; i += 400) {
           const bt = writeBatch(db); snap.docs.slice(i, i + 400).forEach(d => bt.delete(d.ref)); await bt.commit();
@@ -409,14 +473,14 @@ function excluirBar(b) {
         total += snap.size;
       }
       info("Removendo acessos da equipe…");
-      const us = await getDocs(query(collection(db, "usuarios"), where("barId", "==", b.id)));
+      const us = await getDocs(query(collection(db, T.users), where(T.campo, "==", b.id)));
       const bt = writeBatch(db);
       us.docs.forEach(d => { if (d.id !== SUPER) { bt.delete(d.ref); emails.add(d.id); } });
-      bt.delete(doc(db, "bares", b.id));
+      bt.delete(doc(db, T.col, b.id));
       await bt.commit();
-      md.fechar(); toast(`Bar excluído (${total} registros)`, "ok");
+      md.fechar(); toast(`${T.nome} excluído (${total} registros)`, "ok");
       const lista = [...emails].filter(e => e && e !== SUPER);
-      if (lista.length) abrirModal(`<div class="mh"><h2>Bar excluído</h2><button class="icon-btn" data-fechar>✕</button></div>
+      if (lista.length) abrirModal(`<div class="mh"><h2>${T.nome} excluído</h2><button class="icon-btn" data-fechar>✕</button></div>
         <p class="small">Os dados e os acessos foram removidos. Os logins abaixo continuam existindo no Firebase, mas não entram em nada. Se quiser apagá-los também: Console do Firebase → <b>Authentication → Users</b>.</p>
         <div class="link" style="margin-top:10px">${lista.map(esc).join("<br>")}</div>
         <button class="btn block" data-fechar style="margin-top:12px">Entendi</button>`);
@@ -428,9 +492,9 @@ function excluirBar(b) {
 }
 
 function editar(b) {
-  const proprio = b.plano === "proprio";
+  const T = tp(), proprio = b.plano === "proprio";
   const md = abrirModal(`<div class="mh"><h2>Editar ${esc(b.nome || b.id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
-    <label>Nome do bar</label><input id="eNome" value="${esc(b.nome || "")}">
+    <label>Nome do ${T.nomeMin}</label><input id="eNome" value="${esc(b.nome || "")}">
     <label>Nome do responsável</label><input id="eDono" value="${esc(b.donoNome || "")}">
     <label>Plano</label><select id="ePlano"><option value="mensal" ${proprio ? "" : "selected"}>Mensal (cobrado)</option><option value="proprio" ${proprio ? "selected" : ""}>Próprio / cortesia</option></select>
     <div class="row"><div class="grow"><label>Mensalidade (R$)</label><input id="eValor" inputmode="decimal" value="${b.mensalidade ? (b.mensalidade / 100).toFixed(2).replace(".", ",") : ""}"></div>
@@ -442,7 +506,7 @@ function editar(b) {
     const v = s => $(s, md.el).value.trim();
     if (!v("#eNome")) return toast("Informe o nome", "erro");
     try {
-      await updateDoc(doc(db, "bares", b.id), { nome: v("#eNome"), donoNome: v("#eDono"), plano: v("#ePlano"),
+      await updateDoc(doc(db, T.col, b.id), { nome: v("#eNome"), donoNome: v("#eDono"), plano: v("#ePlano"),
         mensalidade: cents(parseNum(v("#eValor"))), vencimento: v("#eVenc") || null, obs: v("#eObs") });
       toast("Salvo", "ok"); md.fechar();
     } catch (e) { toast(erroMsg(e), "erro"); }
@@ -456,7 +520,7 @@ function editar(b) {
     x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("🛠️", s / 2, s * .54); return c.toDataURL("image/png"); };
   const base = location.href.split("#")[0].split("?")[0], scope = base.substring(0, base.lastIndexOf("/") + 1);
   const i192 = ic(192), i512 = ic(512);
-  const m = { name: "Bar · Administrador", short_name: "Admin Bar", id: scope, start_url: base, scope, display: "standalone",
+  const m = { name: "Administrador Apps", short_name: "Admin Apps", id: scope, start_url: base, scope, display: "standalone",
     background_color: "#111214", theme_color: "#111214",
     icons: [{ src: i192, sizes: "192x192", type: "image/png" }, { src: i512, sizes: "512x512", type: "image/png" }] };
   const l = document.createElement("link"); l.rel = "manifest"; l.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: "application/manifest+json" }));
