@@ -341,7 +341,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.5";
+const VERSAO = "3.6";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -1082,7 +1082,7 @@ function vendaBalcao() {
       garcomEmail: "balcao", garcomNome: "Balcão", fechadoPor: S.perfil.nome,
       divisao: "unica", pct: 0, subtotal: tot / 100, taxa: 0, total: tot / 100, qtdPessoas: 1,
       pessoas: [{ nome: nome || "Cliente do balcão", clienteId: null, subtotal: tot / 100, taxa: 0, total: tot / 100, forma: V.forma }],
-      itens: itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100 })),
+      itens: itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100, custo: custoAtual(i.pid, i.nome) })),
       ...(rec >= tot && rec ? { recebido: rec / 100, troco: (rec - tot) / 100 } : {})
     });
     if (V.preparo) b.set(doc(col(C.pedidos)), {
@@ -1212,7 +1212,7 @@ async function fecharMesa(m, peds, c) {
     garcomEmail: m.garcomEmail || "", garcomNome: m.garcomNome || "", fechadoPor: S.perfil.nome,
     divisao: c.divisao, pct: c.pct, subtotal: c.subtotal / 100, taxa: c.taxa / 100, total: c.total / 100, qtdPessoas: (m.ocupantes || []).length,
     pessoas: c.pessoas.map(p => ({ nome: p.nome, clienteId: p.clienteId || null, subtotal: p.subtotal / 100, taxa: p.taxa / 100, total: p.total / 100, forma: pg[p.id]?.forma || "Não informado" })),
-    itens: c.itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: i.total / 100 }))
+    itens: c.itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: i.total / 100, custo: custoAtual(null, i.nome) }))
   });
   peds.forEach(p => b.update(doc(db, C.pedidos, p.id), { aberto: false, ...(["recebido", "preparando", "pronto"].includes(p.status) ? { status: "entregue" } : {}) }));
   encerrarComanda(b, m, c);
@@ -1241,12 +1241,25 @@ function renderCardapio() {
   $("#listaProd").innerHTML = `<div class="list">${lista.map(p => {
     const h = p.categoria !== ult ? `<h3>${esc(p.categoria || "Outros")}</h3>` : ""; ult = p.categoria;
     const f = (S.fotos || {})[p.id];
-    return `${h}<div class="prodrow ${p.ativo === false ? "off" : ""}">${f ? `<img class="thumb" src="${f}" alt="">` : `<span class="thumb">📷</span>`}<button class="pn" data-ed="${p.id}"><b>${esc(p.nome)}</b><br><small class="muted">${brlR(p.preco)}${p.ativo === false ? " · esgotado" : ""}${p.desc ? " · " + esc(p.desc) : ""}</small></button>
+    return `${h}<div class="prodrow ${p.ativo === false ? "off" : ""}">${f ? `<img class="thumb" src="${f}" alt="">` : `<span class="thumb">📷</span>`}<button class="pn" data-ed="${p.id}"><b>${esc(p.nome)}</b><br><small class="muted">${brlR(p.preco)}${Number(p.custo) > 0 ? ` · custo ${brlR(p.custo)} · ${margemTxt(p.preco, p.custo)}` : ""}${p.ativo === false ? " · esgotado" : ""}${p.desc ? " · " + esc(p.desc) : ""}</small></button>
       <label class="switch" style="padding:0" title="Disponível"><input type="checkbox" data-at="${p.id}" ${p.ativo !== false ? "checked" : ""}></label></div>`;
   }).join("") || `<div class="empty">Nada encontrado.</div>`}</div>`;
   $$("[data-ed]").forEach(x => x.onclick = () => editarProduto(S.produtos.find(p => p.id === x.dataset.ed)));
   $$("[data-at]").forEach(x => x.onchange = () => salvar(updateDoc(doc(db, C.produtos, x.dataset.at), { ativo: x.checked }), x.checked ? "Disponível" : "Marcado como esgotado"));
 }
+/* ---------- Custo dos produtos (só a central vê) ---------- */
+function custoAtual(pid, nome) {
+  const p = (pid && S.produtos.find(x => x.id === pid)) || S.produtos.find(x => x.nome === nome);
+  return p && Number(p.custo) > 0 ? Number(p.custo) : 0;
+}
+const comCusto = (itens, chavePid = "pid") => (itens || []).map(i => ({ ...i, custo: custoAtual(i[chavePid], i.nome) }));
+function margemTxt(preco, custo) {
+  preco = Number(preco) || 0; custo = Number(custo) || 0;
+  if (!(custo > 0) || !(preco > 0)) return "";
+  const m = preco - custo, pc = Math.round(m / preco * 100);
+  return `margem ${brlR(m)} (${pc}%)`;
+}
+
 function editarProduto(p) {
   const cats = [...new Set(S.produtos.map(x => x.categoria).filter(Boolean))];
   let foto = p ? (S.fotos || {})[p.id] || null : null, fotoMudou = false;
@@ -1259,7 +1272,11 @@ function editarProduto(p) {
     <label>Nome *</label><input id="pn" value="${esc(p?.nome || "")}">
     <label>Descrição (opcional)</label><input id="pd" maxlength="120" value="${esc(p?.desc || "")}" placeholder="Ex.: 500 g, acompanha molho da casa">
     <label>Categoria</label><input id="pc" list="dlCat" value="${esc(p?.categoria || "")}" placeholder="Ex.: Porções"><datalist id="dlCat">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
-    <label>Preço (R$) *</label><input id="pp" inputmode="decimal" value="${p ? String(p.preco).replace(".", ",") : ""}" placeholder="0,00">
+    <div class="row" style="gap:10px;align-items:flex-start">
+      <div class="grow"><label>Preço de venda (R$) *</label><input id="pp" inputmode="decimal" value="${p ? String(p.preco).replace(".", ",") : ""}" placeholder="0,00"></div>
+      <div class="grow"><label>Custo (R$) <span class="muted">opcional</span></label><input id="pcu" inputmode="decimal" value="${p && Number(p.custo) > 0 ? String(p.custo).replace(".", ",") : ""}" placeholder="0,00"></div>
+    </div>
+    <div class="small" id="pMarg" style="margin-top:6px;min-height:1.2em"></div>
     <label class="switch"><span>Disponível</span><input type="checkbox" id="pa" ${p?.ativo === false ? "" : "checked"}></label>
     <div class="row" style="margin-top:12px">${p ? `<button class="btn danger" id="del">Excluir</button>` : ""}<button class="btn grow" id="ok">Salvar</button></div>`);
   const desenha = () => {
@@ -1267,6 +1284,13 @@ function editarProduto(p) {
     $("#fRem", md.el).classList.toggle("hidden", !foto);
   };
   desenha();
+  const marg = () => {
+    const pr = parseNum($("#pp", md.el).value), cu = parseNum($("#pcu", md.el).value), el = $("#pMarg", md.el);
+    if (!(cu > 0)) { el.innerHTML = `<span class="muted">Com o custo, o relatório mostra o lucro e a margem de cada item. Só quem tem acesso à central vê.</span>`; return; }
+    if (!(pr > 0)) { el.textContent = ""; return; }
+    const m = pr - cu; el.innerHTML = `Lucro por unidade: <b style="color:${m >= 0 ? "var(--ok)" : "var(--er)"}">${brlR(m)}</b> · margem <b>${Math.round(m / pr * 100)}%</b>`;
+  };
+  $("#pp", md.el).addEventListener("input", marg); $("#pcu", md.el).addEventListener("input", marg); marg();
   $("#fEsc", md.el).onclick = () => $("#fArq", md.el).click();
   $("#fArq", md.el).onchange = async e => {
     const arq = e.target.files[0]; if (!arq) return;
@@ -1276,7 +1300,8 @@ function editarProduto(p) {
   };
   $("#fRem", md.el).onclick = () => { foto = null; fotoMudou = true; desenha(); };
   $("#ok", md.el).onclick = () => {
-    const d = { nome: $("#pn", md.el).value.trim(), desc: $("#pd", md.el).value.trim(), categoria: $("#pc", md.el).value.trim() || "Outros", preco: Math.round(parseNum($("#pp", md.el).value) * 100) / 100, ativo: $("#pa", md.el).checked };
+    const d = { nome: $("#pn", md.el).value.trim(), desc: $("#pd", md.el).value.trim(), categoria: $("#pc", md.el).value.trim() || "Outros", preco: Math.round(parseNum($("#pp", md.el).value) * 100) / 100, custo: Math.round(parseNum($("#pcu", md.el).value) * 100) / 100, ativo: $("#pa", md.el).checked };
+    if (d.custo < 0) return toast("Custo inválido", "erro");
     if (!d.nome || !(d.preco > 0)) return toast("Informe nome e preço", "erro");
     const ref = p ? doc(db, C.produtos, p.id) : doc(col(C.produtos));
     const bt = writeBatch(db);
@@ -1754,7 +1779,7 @@ function concluirDlv(d) {
       garcomEmail: "delivery", garcomNome: "Online", fechadoPor: S.perfil.nome,
       divisao: "unica", pct: 0, subtotal: d.subtotal / 100, taxa: 0, taxaEntrega: (d.taxaEntrega || 0) / 100, total: d.total / 100, qtdPessoas: 1,
       pessoas: [{ nome: d.nome, clienteId: null, subtotal: d.total / 100, taxa: 0, total: d.total / 100, forma }],
-      itens: (d.itens || []).map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100 }))
+      itens: (d.itens || []).map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100, custo: custoAtual(i.pid, i.nome) }))
     });
     bt.update(doc(db, C.delivery, d.id), { status: "concluido", ativo: false, forma, encerradoEm: serverTimestamp() });
     if (d.pedidoId) bt.update(doc(db, C.pedidos, d.pedidoId), { status: "entregue", aberto: false });
@@ -1835,7 +1860,15 @@ async function gerarRelatorio() {
   const tot = contas.reduce((s, c) => s + cents(c.total), 0), taxa = contas.reduce((s, c) => s + cents(c.taxa), 0);
   const pessoas = contas.reduce((s, c) => s + (c.qtdPessoas || c.pessoas?.length || 0), 0);
   const formas = {}; contas.forEach(c => (c.pessoas || []).forEach(p => formas[p.forma] = (formas[p.forma] || 0) + cents(p.total)));
-  const itens = {}; contas.forEach(c => (c.itens || []).forEach(i => { const k = i.nome; itens[k] = itens[k] || { nome: i.nome, qtd: 0, total: 0 }; itens[k].qtd += i.qtd; itens[k].total += cents(i.total); }));
+  const itens = {}; let semCusto = 0, estimado = false;
+  contas.forEach(c => (c.itens || []).forEach(i => {
+    const k = i.nome; itens[k] = itens[k] || { nome: i.nome, qtd: 0, total: 0, custo: 0, temCusto: false }; itens[k].qtd += i.qtd; itens[k].total += cents(i.total);
+    let cu = Number(i.custo); if (!(cu > 0) && i.custo === undefined) { cu = custoAtual(null, i.nome); if (cu > 0) estimado = true; }
+    if (cu > 0) { itens[k].custo += cents(cu) * i.qtd; itens[k].temCusto = true; } else semCusto += i.qtd;
+  }));
+  const ilist = Object.values(itens), vendasProd = ilist.reduce((s, i) => s + i.total, 0);
+  const cmv = ilist.reduce((s, i) => s + i.custo, 0), vendasComCusto = ilist.filter(i => i.temCusto).reduce((s, i) => s + i.total, 0);
+  const lucro = vendasComCusto - cmv, temCustos = ilist.some(i => i.temCusto);
   const topItens = Object.values(itens).sort((a, b) => b.qtd - a.qtd || b.total - a.total);
   const orig = { mesa: { t: "Mesas", n: 0, v: 0 }, balcao: { t: "Balcão", n: 0, v: 0 }, online: { t: "Online", n: 0, v: 0 } };
   contas.forEach(c => { const o = orig[origemConta(c)]; o.n++; o.v += cents(c.total); });
@@ -1861,6 +1894,14 @@ async function gerarRelatorio() {
       <div class="kpi"><small>Ticket médio / pessoa</small><b>${brl(pessoas ? Math.round(tot / pessoas) : 0)}</b></div>
       <div class="kpi"><small>Em aberto agora</small><b>${brl(emAberto)}</b><small>${ab.length} mesa(s)</small></div>
     </div>
+    ${temCustos ? `<h3>Lucro dos produtos</h3>
+    <div class="kpis">
+      <div class="kpi"><small>Vendas de produtos</small><b>${brl(vendasProd)}</b></div>
+      <div class="kpi"><small>Custo dos produtos</small><b>${brl(cmv)}</b></div>
+      <div class="kpi"><small>Lucro bruto</small><b style="color:${lucro >= 0 ? "var(--ok)" : "var(--er)"}">${brl(lucro)}</b></div>
+      <div class="kpi"><small>Margem</small><b>${vendasComCusto ? Math.round(lucro / vendasComCusto * 100) : 0}%</b></div>
+    </div>
+    <p class="small muted" style="margin-top:6px">Considera só os itens com custo cadastrado${semCusto ? ` · <b style="color:var(--ac2)">${semCusto} item(ns) vendido(s) sem custo</b> ficaram de fora` : ""}${estimado ? " · vendas anteriores ao cadastro usam o custo atual" : ""}. Não inclui a taxa de serviço nem despesas fixas.</p>` : ""}
     <h3>Por forma de pagamento</h3>
     <div class="card"><table class="t"><tbody>${Object.entries(formas).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<tr><td>${esc(f)}</td><td class="r">${brl(v)}</td></tr>`).join("") || `<tr><td class="muted">Sem vendas</td></tr>`}</tbody></table></div>
     ${origL.length > 1 || orig.balcao.n ? `<h3>Por origem</h3>
@@ -1870,8 +1911,8 @@ async function gerarRelatorio() {
       ${garL.map(g => `<tr><td>${esc(g.nome)}</td><td class="r">${g.pedidos}</td><td class="r">${g.mesas}</td><td class="r">${brl(g.valor)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sem pedidos</td></tr>`}</tbody></table>
       ${canc ? `<div class="small muted" style="margin-top:6px">${canc} pedido(s) cancelado(s) no período.</div>` : ""}</div>
     <h3>Itens mais vendidos</h3>
-    <div class="card"><table class="t"><thead><tr><th>Item</th><th class="r">Qtd</th><th class="r">Total</th></tr></thead><tbody>
-      ${topItens.map(i => `<tr><td>${esc(i.nome)}</td><td class="r">${i.qtd}</td><td class="r">${brl(i.total)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Sem vendas</td></tr>`}</tbody></table></div>
+    <div class="card"><table class="t"><thead><tr><th>Item</th><th class="r">Qtd</th><th class="r">Total</th>${temCustos ? `<th class="r">Lucro</th>` : ""}</tr></thead><tbody>
+      ${topItens.map(i => `<tr><td>${esc(i.nome)}</td><td class="r">${i.qtd}</td><td class="r">${brl(i.total)}</td>${temCustos ? `<td class="r">${i.temCusto ? `${brl(i.total - i.custo)}<div class="small muted">${Math.round((i.total - i.custo) / i.total * 100)}%</div>` : `<span class="muted">—</span>`}</td>` : ""}</tr>`).join("") || `<tr><td colspan="${temCustos ? 4 : 3}" class="muted">Sem vendas</td></tr>`}</tbody></table></div>
     <h3>Contas fechadas</h3>
     <div class="list">${contasOrd.map(c => `<button class="card" style="width:100%;text-align:left" data-conta="${c.id}"><div class="row between"><b>${esc(c.rotulo || "Mesa " + c.mesaNumero)}</b><b>${brlR(c.total)}</b></div>
       <div class="small muted">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · ${c.qtdPessoas || 0} pess.</div></button>`).join("") || `<div class="empty">Nenhuma conta fechada no período.</div>`}</div>
@@ -1880,6 +1921,7 @@ async function gerarRelatorio() {
 
   let t = `*${S.cfg.nomeBar} — Relatório ${periodo}*\n\nFaturamento: ${brl(tot)}\nServiço: ${brl(taxa)}\nMesas: ${contas.length} · Pessoas: ${pessoas}\nTicket médio: ${brl(pessoas ? Math.round(tot / pessoas) : 0)}\n`;
   if (origL.length > 1 || orig.balcao.n) t += `\n*Por origem*\n` + origL.map(o => `${o.t}: ${brl(o.v)} (${o.n})`).join("\n") + "\n";
+  if (temCustos) t += `\n*Lucro dos produtos*\nVendas: ${brl(vendasProd)}\nCusto: ${brl(cmv)}\nLucro bruto: ${brl(lucro)} (${vendasComCusto ? Math.round(lucro / vendasComCusto * 100) : 0}%)\n`;
   t += `\n*Pagamentos*\n` + Object.entries(formas).map(([f, v]) => `${f}: ${brl(v)}`).join("\n");
   t += `\n\n*Garçons*\n` + garL.map(g => `${g.nome}: ${brl(g.valor)} (${g.pedidos} pedidos)`).join("\n");
   t += `\n\n*Mais vendidos*\n` + topItens.slice(0, 10).map(i => `${i.qtd}x ${i.nome}`).join("\n");
