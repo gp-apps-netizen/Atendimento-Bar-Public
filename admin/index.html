@@ -118,7 +118,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "2.0";
+const VERSAO = "2.1";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -198,7 +198,7 @@ const tp = () => TIPOS[S.app];
 /* ---------- Links de cada bar ---------- */
 const raiz = new URL("../", location.href.split("#")[0].split("?")[0]);
 const linksSalao = id => ({
-  admin: new URL("admin/", SALAO_BASE).href,
+  admin: new URL(`admin/?s=${encodeURIComponent(id)}`, SALAO_BASE).href,
   agenda: new URL(`?s=${encodeURIComponent(id)}`, SALAO_BASE).href,
   suporte: new URL(`admin/?salao=${encodeURIComponent(id)}`, SALAO_BASE).href
 });
