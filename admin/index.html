@@ -115,7 +115,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "1.2";
+const VERSAO = "1.3";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -379,7 +379,7 @@ function detalhes(id) {
 }
 
 /* ---------- Excluir bar: apaga bares/{id}, todas as subcoleções e os vínculos da equipe ---------- */
-const SUBCOLECOES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos"];
+const SUBCOLECOES = ["garcons", "produtos", "mesas", "clientes", "pedidos", "contas", "config", "chamados", "comandas", "publico", "delivery", "fotos", "estoque"];
 function excluirBar(b) {
   const md = abrirModal(`<div class="mh"><h2>Excluir ${esc(b.nome || b.id)}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <div class="card" style="border-color:var(--er)">
