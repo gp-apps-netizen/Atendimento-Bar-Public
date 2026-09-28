@@ -76,6 +76,19 @@ main{padding:14px;max-width:1200px;margin:0 auto}
 .mesa.fechamento .n{color:var(--info)}
 .mesa .flag{position:absolute;top:8px;right:8px;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 7px}
 .flag.pronto{background:var(--ok);color:#03150c}.flag.conta{background:var(--info);color:#021426}
+.bl-lista{max-height:40vh;overflow:auto;margin-top:8px;padding-right:2px}
+.bl-it{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--s2);width:100%;text-align:left;cursor:pointer}
+.bl-it+.bl-it{margin-top:6px}
+.bl-it.sel{border-color:var(--ac);background:#241d0c}
+.bl-it .nm{flex:1;min-width:0}.bl-it .nm b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bl-it .nm small{color:var(--mu)}
+.bl-q{display:flex;align-items:center;gap:6px;flex:none}
+.bl-q button{width:34px;height:34px;border-radius:8px;background:var(--s3);font-size:1.15rem;font-weight:700}
+.bl-q span{min-width:22px;text-align:center;font-weight:700}
+.bl-tot{font-family:'Space Grotesk';font-size:1.7rem;font-weight:700;line-height:1}
+.bl-formas{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.bl-formas button{padding:11px 4px;border-radius:10px;background:var(--s2);border:1px solid var(--bd);font-size:.85rem}
+.bl-formas button.on{background:var(--ac);color:var(--acx);border-color:var(--ac);font-weight:700}
+.bl-troco{margin-top:6px;font-weight:600}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .modal{background:var(--s1);border:1px solid var(--bd);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));animation:up .18s ease-out}
 .modal.full{height:92vh;display:flex;flex-direction:column;padding:0}
@@ -219,6 +232,7 @@ table.t td.r,table.t th.r{text-align:right}
   </section>
 
   <section id="t-pedidos" class="tela hidden">
+    <button class="btn block" id="btnBalcao" style="margin-bottom:12px;padding:13px">🛒 Venda no balcão</button>
     <div class="seg" id="segCols">
       <button data-c="recebido" class="on">Recebidos <b id="nRec"></b></button>
       <button data-c="preparando">Preparando <b id="nPrep"></b></button>
@@ -297,7 +311,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.2";
+const VERSAO = "3.3";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -925,12 +939,107 @@ function renderPedidos() {
   [["nRec", "recebido"], ["nPrep", "preparando"], ["nPro", "pronto"]].forEach(([id, k]) => { $("#" + id).textContent = grupos[k].length || ""; $("#" + id + "2").textContent = grupos[k].length; });
   $$("[data-prox]").forEach(b => b.onclick = () => {
     const st = b.dataset.st, extra = st === "pronto" ? { prontoEm: serverTimestamp() } : st === "entregue" ? { entregueEm: serverTimestamp() } : { preparoEm: serverTimestamp() };
-    salvar(updateDoc(doc(db, C.pedidos, b.dataset.prox), { status: st, ...extra }));
+    const pb = ehBalcaoPed(S.pedidos.find(x => x.id === b.dataset.prox));
+    salvar(updateDoc(doc(db, C.pedidos, b.dataset.prox), { status: st, ...extra, ...(pb && st === "entregue" ? { aberto: false } : {}) }));
   });
   $$("[data-canc]").forEach(b => b.onclick = async () => {
-    if (await confirmar("Cancelar este pedido? Ele sai da conta da mesa.", "Cancelar pedido", true))
-      salvar(updateDoc(doc(db, C.pedidos, b.dataset.canc), { status: "cancelado", canceladoPor: S.perfil.nome }), "Pedido cancelado");
+    const pb = ehBalcaoPed(S.pedidos.find(x => x.id === b.dataset.canc));
+    const msg = pb ? "Tirar este pedido da fila? A venda do balcão continua registrada. Para estornar, use o Relatório." : "Cancelar este pedido? Ele sai da conta da mesa.";
+    if (await confirmar(msg, pb ? "Tirar da fila" : "Cancelar pedido", true))
+      salvar(updateDoc(doc(db, C.pedidos, b.dataset.canc), { status: "cancelado", canceladoPor: S.perfil.nome, ...(pb ? { aberto: false } : {}) }), pb ? "Retirado da fila" : "Pedido cancelado");
   });
+}
+
+/* ---------- Venda no balcão: venda direta, já paga, sem abrir mesa ---------- */
+const ehBalcaoPed = p => String(p?.mesaId || "").startsWith("balcao_");
+const origemConta = c => String(c.mesaId || "").startsWith("dlv_") ? "online" : (c.origem === "balcao" || c.mesaId === "balcao") ? "balcao" : "mesa";
+$("#btnBalcao").onclick = () => vendaBalcao();
+function vendaBalcao() {
+  const V = { cart: {}, cat: "Todas", busca: "", forma: "", preparo: false };
+  const ativos = () => S.produtos.filter(p => p.ativo !== false);
+  const cats = ["Todas", ...new Set(ativos().map(p => p.categoria || "Outros"))];
+  const md = abrirModal(`<div class="mh"><h2>🛒 Venda no balcão</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <input id="blBusca" placeholder="Buscar produto…" autocomplete="off">
+    <div class="scroll-x" style="margin-top:8px"><div class="chips" id="blCats"></div></div>
+    <div class="bl-lista" id="blLista"></div>
+    <div class="card" style="margin-top:10px;background:var(--s2)">
+      <div class="row between"><span class="muted small" id="blQtd">Nenhum item</span><span class="bl-tot" id="blTot">R$ 0,00</span></div>
+      <div class="small muted" id="blResumo" style="margin-top:4px"></div>
+    </div>
+    <label>Forma de pagamento</label>
+    <div class="bl-formas" id="blFormas">${FORMAS.map(f => `<button data-f="${f}">${f}</button>`).join("")}</div>
+    <div id="blDinheiro" class="hidden"><label>Valor recebido (para calcular o troco)</label><input id="blRec" inputmode="decimal" placeholder="Ex.: 50"><div class="bl-troco" id="blTroco"></div></div>
+    <label>Nome do cliente (opcional)</label><input id="blNome" placeholder="Aparece na fila e no relatório">
+    <label class="switch"><span>Mandar para a fila de preparo</span><input type="checkbox" id="blPrep"></label>
+    <button class="btn ok block" id="blOk" style="margin-top:10px;padding:14px" disabled>Registrar venda</button>`, { classe: "grande" });
+  const el = md.el;
+  const total = () => ativos().reduce((s, p) => s + cents(p.preco) * (V.cart[p.id] || 0), 0);
+  const qtd = () => Object.values(V.cart).reduce((s, n) => s + n, 0);
+  function lista() {
+    const b = norm(V.busca);
+    const l = ativos().filter(p => (V.cat === "Todas" || (p.categoria || "Outros") === V.cat) && (!b || norm(p.nome).includes(b)))
+      .sort((a, c) => (a.categoria || "").localeCompare(c.categoria || "") || a.nome.localeCompare(c.nome));
+    $("#blCats", el).innerHTML = cats.map(c => `<button class="chip ${c === V.cat ? "on" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+    $$("[data-cat]", el).forEach(x => x.onclick = () => { V.cat = x.dataset.cat; lista(); });
+    $("#blLista", el).innerHTML = l.map(p => {
+      const q = V.cart[p.id] || 0;
+      return `<div class="bl-it ${q ? "sel" : ""}" data-add="${p.id}"><div class="nm"><b>${esc(p.nome)}</b><small>${brlR(p.preco)}</small></div>
+        ${q ? `<div class="bl-q"><button data-menos="${p.id}">−</button><span>${q}</span><button data-mais="${p.id}">+</button></div>` : `<span class="muted" style="font-size:1.3rem">+</span>`}</div>`;
+    }).join("") || `<div class="empty">${S.produtos.length ? "Nenhum produto encontrado." : "Cadastre produtos na aba Cardápio."}</div>`;
+    $$("[data-add]", el).forEach(x => x.onclick = e => {
+      const id = x.dataset.add;
+      if (e.target.closest("[data-menos]")) V.cart[id] = Math.max(0, (V.cart[id] || 0) - 1);
+      else V.cart[id] = (V.cart[id] || 0) + 1;
+      if (!V.cart[id]) delete V.cart[id];
+      lista(); resumo();
+    });
+  }
+  function resumo() {
+    const tot = total(), n = qtd();
+    $("#blTot", el).textContent = brl(tot);
+    $("#blQtd", el).textContent = n ? `${n} ite${n === 1 ? "m" : "ns"}` : "Nenhum item";
+    $("#blResumo", el).textContent = ativos().filter(p => V.cart[p.id]).map(p => `${V.cart[p.id]}x ${p.nome}`).join(" · ");
+    $$("#blFormas button", el).forEach(b => b.classList.toggle("on", b.dataset.f === V.forma));
+    $("#blDinheiro", el).classList.toggle("hidden", V.forma !== "Dinheiro");
+    const rec = cents(parseNum($("#blRec", el).value));
+    $("#blTroco", el).innerHTML = V.forma === "Dinheiro" && rec ? (rec >= tot ? `Troco: <span style="color:var(--ok)">${brl(rec - tot)}</span>` : `<span style="color:var(--er)">Faltam ${brl(tot - rec)}</span>`) : "";
+    const ok = $("#blOk", el);
+    ok.disabled = !n || !V.forma;
+    ok.textContent = !n ? "Escolha os produtos" : !V.forma ? "Escolha a forma de pagamento" : `Registrar venda · ${brl(tot)}`;
+  }
+  $("#blBusca", el).oninput = e => { V.busca = e.target.value; lista(); };
+  $$("#blFormas button", el).forEach(b => b.onclick = () => { V.forma = b.dataset.f; resumo(); });
+  $("#blRec", el).oninput = resumo;
+  $("#blPrep", el).onchange = e => { V.preparo = e.target.checked; };
+  $("#blOk", el).onclick = async () => {
+    const itens = ativos().filter(p => V.cart[p.id]).map(p => ({ pid: p.id, nome: p.nome, preco: p.preco, qtd: V.cart[p.id] }));
+    const tot = total(); if (!itens.length || !V.forma) return;
+    const nome = $("#blNome", el).value.trim().slice(0, 40), sessao = rid(), rotulo = "Balcão" + (nome ? " · " + nome : "");
+    const rec = V.forma === "Dinheiro" ? cents(parseNum($("#blRec", el).value)) : 0;
+    const bt = $("#blOk", el); bt.disabled = true; bt.textContent = "Registrando…";
+    const b = writeBatch(db);
+    b.set(doc(col(C.contas)), {
+      mesaId: "balcao", origem: "balcao", mesaNumero: 0, mesaNome: "", rotulo, sessao,
+      abertaEm: serverTimestamp(), fechadaEm: serverTimestamp(), dia: diaOperacao(),
+      garcomEmail: "balcao", garcomNome: "Balcão", fechadoPor: S.perfil.nome,
+      divisao: "unica", pct: 0, subtotal: tot / 100, taxa: 0, total: tot / 100, qtdPessoas: 1,
+      pessoas: [{ nome: nome || "Cliente do balcão", clienteId: null, subtotal: tot / 100, taxa: 0, total: tot / 100, forma: V.forma }],
+      itens: itens.map(i => ({ nome: i.nome, preco: i.preco, qtd: i.qtd, total: cents(i.preco) * i.qtd / 100 })),
+      ...(rec >= tot && rec ? { recebido: rec / 100, troco: (rec - tot) / 100 } : {})
+    });
+    if (V.preparo) b.set(doc(col(C.pedidos)), {
+      mesaId: "balcao_" + sessao, mesaNumero: 0, mesaNome: "", rotulo, sessao,
+      itens: itens.map(i => ({ pid: i.pid, nome: i.nome, preco: i.preco, qtd: i.qtd, obs: "", para: [] })),
+      status: "recebido", aberto: true, garcomEmail: "balcao", garcomNome: "Balcão · " + S.perfil.nome, criadoEm: serverTimestamp(), dia: diaOperacao()
+    });
+    try {
+      await b.commit();
+      toast(`✅ Venda registrada · ${brl(tot)}${rec > tot ? ` · troco ${brl(rec - tot)}` : ""}`, "ok");
+      V.cart = {}; V.forma = ""; V.busca = ""; $("#blBusca", el).value = ""; $("#blRec", el).value = ""; $("#blNome", el).value = "";
+      lista(); resumo();
+    } catch (e) { erroSnap(e); resumo(); }
+  };
+  lista(); resumo();
 }
 
 /* ---------- Mesas ---------- */
@@ -1425,7 +1534,7 @@ async function modalExpediente() {
     const snap = await getDocs(query(col(C.contas), where("dia", ">=", diaOperacao(desde))));
     contas = snap.docs.map(d => d.data()).filter(x => (tsDate(x.fechadaEm) || new Date()) >= desde);
   } catch (err) { console.warn(err); }
-  const tot = contas.reduce((s, x) => s + cents(x.total), 0), online = contas.filter(x => String(x.mesaId || "").startsWith("dlv_"));
+  const tot = contas.reduce((s, x) => s + cents(x.total), 0), online = contas.filter(x => origemConta(x) === "online"), balc = contas.filter(x => origemConta(x) === "balcao");
   const formas = {}; contas.forEach(x => (x.pessoas || []).forEach(p => formas[p.forma] = (formas[p.forma] || 0) + cents(p.total)));
   if (!md.aberto) return;
   $("#expResumo", md.el).innerHTML = `
@@ -1433,7 +1542,8 @@ async function modalExpediente() {
     ${dlv.length ? `<div class="alerta">⚠️ ${dlv.length} pedido(s) online ainda em andamento na aba Online.</div>` : ""}
     <div class="kpis" style="margin-top:6px">
       <div class="kpi"><small>Faturamento</small><b>${brl(tot)}</b></div>
-      <div class="kpi"><small>Mesas fechadas</small><b>${contas.length - online.length}</b></div>
+      <div class="kpi"><small>Mesas fechadas</small><b>${contas.length - online.length - balc.length}</b></div>
+      <div class="kpi"><small>Vendas no balcão</small><b>${balc.length}</b><small>${brl(balc.reduce((s, x) => s + cents(x.total), 0))}</small></div>
       <div class="kpi"><small>Pedidos online</small><b>${online.length}</b></div>
       <div class="kpi"><small>Serviço</small><b>${brl(contas.reduce((s, x) => s + cents(x.taxa), 0))}</b></div>
     </div>
@@ -1644,7 +1754,10 @@ async function gerarRelatorio() {
   const formas = {}; contas.forEach(c => (c.pessoas || []).forEach(p => formas[p.forma] = (formas[p.forma] || 0) + cents(p.total)));
   const itens = {}; contas.forEach(c => (c.itens || []).forEach(i => { const k = i.nome; itens[k] = itens[k] || { nome: i.nome, qtd: 0, total: 0 }; itens[k].qtd += i.qtd; itens[k].total += cents(i.total); }));
   const topItens = Object.values(itens).sort((a, b) => b.qtd - a.qtd || b.total - a.total);
-  const gar = {}; peds.filter(p => p.status !== "cancelado").forEach(p => {
+  const orig = { mesa: { t: "Mesas", n: 0, v: 0 }, balcao: { t: "Balcão", n: 0, v: 0 }, online: { t: "Online", n: 0, v: 0 } };
+  contas.forEach(c => { const o = orig[origemConta(c)]; o.n++; o.v += cents(c.total); });
+  const origL = Object.values(orig).filter(o => o.n);
+  const gar = {}; peds.filter(p => p.status !== "cancelado" && p.garcomEmail !== "balcao").forEach(p => {
     const g = gar[p.garcomEmail] = gar[p.garcomEmail] || { nome: p.garcomNome || p.garcomEmail, pedidos: 0, valor: 0, mesas: 0 };
     g.pedidos++; g.valor += (p.itens || []).reduce((s, i) => s + cents(i.preco) * i.qtd, 0);
   });
@@ -1660,13 +1773,15 @@ async function gerarRelatorio() {
     <div class="kpis">
       <div class="kpi"><small>Faturamento</small><b>${brl(tot)}</b></div>
       <div class="kpi"><small>Serviço (garçons)</small><b>${brl(taxa)}</b></div>
-      <div class="kpi"><small>Mesas fechadas</small><b>${contas.length}</b></div>
+      <div class="kpi"><small>Mesas fechadas</small><b>${orig.mesa.n}</b>${orig.balcao.n || orig.online.n ? `<small>+ ${[orig.balcao.n && orig.balcao.n + " balcão", orig.online.n && orig.online.n + " online"].filter(Boolean).join(" · ")}</small>` : ""}</div>
       <div class="kpi"><small>Pessoas atendidas</small><b>${pessoas}</b></div>
       <div class="kpi"><small>Ticket médio / pessoa</small><b>${brl(pessoas ? Math.round(tot / pessoas) : 0)}</b></div>
       <div class="kpi"><small>Em aberto agora</small><b>${brl(emAberto)}</b><small>${ab.length} mesa(s)</small></div>
     </div>
     <h3>Por forma de pagamento</h3>
     <div class="card"><table class="t"><tbody>${Object.entries(formas).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<tr><td>${esc(f)}</td><td class="r">${brl(v)}</td></tr>`).join("") || `<tr><td class="muted">Sem vendas</td></tr>`}</tbody></table></div>
+    ${origL.length > 1 || orig.balcao.n ? `<h3>Por origem</h3>
+    <div class="card"><table class="t"><thead><tr><th>Origem</th><th class="r">Vendas</th><th class="r">Valor</th></tr></thead><tbody>${origL.map(o => `<tr><td>${o.t}</td><td class="r">${o.n}</td><td class="r">${brl(o.v)}</td></tr>`).join("")}</tbody></table></div>` : ""}
     <h3>Vendas por garçom (pedidos lançados)</h3>
     <div class="card"><table class="t"><thead><tr><th>Garçom</th><th class="r">Pedidos</th><th class="r">Mesas</th><th class="r">Valor</th></tr></thead><tbody>
       ${garL.map(g => `<tr><td>${esc(g.nome)}</td><td class="r">${g.pedidos}</td><td class="r">${g.mesas}</td><td class="r">${brl(g.valor)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sem pedidos</td></tr>`}</tbody></table>
@@ -1677,23 +1792,31 @@ async function gerarRelatorio() {
     <h3>Contas fechadas</h3>
     <div class="list">${contasOrd.map(c => `<button class="card" style="width:100%;text-align:left" data-conta="${c.id}"><div class="row between"><b>${esc(c.rotulo || "Mesa " + c.mesaNumero)}</b><b>${brlR(c.total)}</b></div>
       <div class="small muted">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · ${c.qtdPessoas || 0} pess.</div></button>`).join("") || `<div class="empty">Nenhuma conta fechada no período.</div>`}</div>
-    <p class="muted small" style="margin-top:14px">O dia de operação vai das 6h às 6h do dia seguinte. Faturamento considera só mesas já fechadas.</p>`;
+    <p class="muted small" style="margin-top:14px">O dia de operação vai das 6h às 6h do dia seguinte. Faturamento considera mesas fechadas, vendas do balcão e pedidos online concluídos.</p>`;
   $$("[data-conta]").forEach(b => b.onclick = () => verConta(contas.find(c => c.id === b.dataset.conta)));
 
   let t = `*${S.cfg.nomeBar} — Relatório ${periodo}*\n\nFaturamento: ${brl(tot)}\nServiço: ${brl(taxa)}\nMesas: ${contas.length} · Pessoas: ${pessoas}\nTicket médio: ${brl(pessoas ? Math.round(tot / pessoas) : 0)}\n`;
+  if (origL.length > 1 || orig.balcao.n) t += `\n*Por origem*\n` + origL.map(o => `${o.t}: ${brl(o.v)} (${o.n})`).join("\n") + "\n";
   t += `\n*Pagamentos*\n` + Object.entries(formas).map(([f, v]) => `${f}: ${brl(v)}`).join("\n");
   t += `\n\n*Garçons*\n` + garL.map(g => `${g.nome}: ${brl(g.valor)} (${g.pedidos} pedidos)`).join("\n");
   t += `\n\n*Mais vendidos*\n` + topItens.slice(0, 10).map(i => `${i.qtd}x ${i.nome}`).join("\n");
   S.rel = { texto: t };
 }
 function verConta(c) {
-  abrirModal(`<div class="mh"><h2>${esc(c.rotulo || "Mesa " + c.mesaNumero)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+  const md = abrirModal(`<div class="mh"><h2>${esc(c.rotulo || "Mesa " + c.mesaNumero)}</h2><button class="icon-btn" data-fechar>✕</button></div>
     <div class="muted small">${fmtDia(c.dia)} · ${hora(c.abertaEm)}–${hora(c.fechadaEm)} · ${esc(c.garcomNome)} · fechada por ${esc(c.fechadoPor || "")}</div>
     <h3>Consumo</h3><table class="t"><tbody>${(c.itens || []).map(i => `<tr><td>${i.qtd}x ${esc(i.nome)}</td><td class="r">${brlR(i.total)}</td></tr>`).join("")}</tbody></table>
     <h3>Pagamentos · ${DIVISOES[c.divisao] || ""}</h3><table class="t"><tbody>${(c.pessoas || []).map(p => `<tr><td>${esc(p.nome)}</td><td>${esc(p.forma)}</td><td class="r">${brlR(p.total)}</td></tr>`).join("")}</tbody></table>
     <div class="kv"><span class="muted">Subtotal</span><span>${brlR(c.subtotal)}</span></div>
     ${c.taxa ? `<div class="kv"><span class="muted">Serviço ${c.pct}%</span><span>${brlR(c.taxa)}</span></div>` : ""}
-    <div class="kv tot"><span>Total</span><span>${brlR(c.total)}</span></div>`);
+    <div class="kv tot"><span>Total</span><span>${brlR(c.total)}</span></div>
+    ${c.recebido ? `<div class="kv"><span class="muted">Recebido / troco</span><span>${brlR(c.recebido)} / ${brlR(c.troco || 0)}</span></div>` : ""}
+    ${origemConta(c) === "balcao" && c.id ? `<button class="btn danger block" id="estornar" style="margin-top:14px">Estornar esta venda</button>` : ""}`);
+  md.el.querySelector("#estornar")?.addEventListener("click", async () => {
+    if (!await confirmar(`Estornar a venda <b>${esc(c.rotulo || "Balcão")}</b> de <b>${brlR(c.total)}</b>? Ela sai do relatório.`, "Estornar", true)) return;
+    try { await deleteDoc(doc(db, C.contas, c.id)); toast("Venda estornada", "ok"); md.fechar(); gerarRelatorio(); }
+    catch (e) { erroSnap(e); }
+  });
 }
 </script>
 </body>
