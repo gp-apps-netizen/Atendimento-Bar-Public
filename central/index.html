@@ -17,6 +17,7 @@
   --ok:#3ecf8e; --er:#ef5350; --info:#4aa3ff; --prep:#b58cff;
   --r:12px;
 }
+:root{--acS:color-mix(in srgb,var(--ac) 18%,var(--s1));--acS2:color-mix(in srgb,var(--ac) 12%,var(--s1));--acB:color-mix(in srgb,var(--ac) 42%,var(--s1))}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--tx);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;line-height:1.4}
 body{min-height:100vh;padding-bottom:84px}
@@ -54,7 +55,7 @@ main{padding:14px;max-width:1200px;margin:0 auto}
 .seg button{flex:1;padding:8px 6px;border-radius:8px;font-size:.85rem;color:var(--mu)}
 .seg button.on{background:var(--s3);color:var(--tx);font-weight:600}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:600}
-.st-rec{background:#3a2f12;color:var(--ac2)}.st-prep{background:#2b2144;color:var(--prep)}.st-pronto{background:#0f3a28;color:var(--ok)}
+.st-rec{background:var(--acS);color:var(--ac2)}.st-prep{background:#2b2144;color:var(--prep)}.st-pronto{background:#0f3a28;color:var(--ok)}
 .st-ent{background:var(--s3);color:var(--mu)}.st-canc{background:#3a1616;color:var(--er)}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(26,27,30,.97);border-top:1px solid var(--bd);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
 .tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:10px;font-size:.7rem;color:var(--mu);position:relative}
@@ -70,7 +71,7 @@ main{padding:14px;max-width:1200px;margin:0 auto}
 .mesa .inf{font-size:.75rem;color:var(--mu);margin-top:auto}
 .mesa .tot{font-family:'Space Grotesk';font-weight:600;font-size:.95rem}
 .mesa.livre{opacity:.72}.mesa.livre .n{color:var(--mu)}
-.mesa.aberta{border-color:#5a4a1e;background:linear-gradient(160deg,#241d0c,var(--s1) 60%)}
+.mesa.aberta{border-color:var(--acB);background:linear-gradient(160deg,var(--acS2),var(--s1) 60%)}
 .mesa.aberta .n{color:var(--ac)}
 .mesa.fechamento{border-color:var(--info);background:linear-gradient(160deg,#0c1f33,var(--s1) 60%)}
 .mesa.fechamento .n{color:var(--info)}
@@ -79,7 +80,7 @@ main{padding:14px;max-width:1200px;margin:0 auto}
 .bl-lista{max-height:40vh;overflow:auto;margin-top:8px;padding-right:2px}
 .bl-it{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--s2);width:100%;text-align:left;cursor:pointer}
 .bl-it+.bl-it{margin-top:6px}
-.bl-it.sel{border-color:var(--ac);background:#241d0c}
+.bl-it.sel{border-color:var(--ac);background:var(--acS2)}
 .bl-it .nm{flex:1;min-width:0}.bl-it .nm b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bl-it .nm small{color:var(--mu)}
 .bl-q{display:flex;align-items:center;gap:6px;flex:none}
 .bl-q button{width:34px;height:34px;border-radius:8px;background:var(--s3);font-size:1.15rem;font-weight:700}
@@ -154,6 +155,16 @@ table.t td.r,table.t th.r{text-align:right}
 .ic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;margin-top:12px}
 .ic-grid button{height:44px;border-radius:10px;background:var(--s2);border:1px solid var(--bd);font-size:22px}
 .ic-grid button.on{border-color:var(--ac);background:var(--s3)}
+.cor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px;margin-top:10px}
+.cor-grid button{height:44px;border-radius:12px;border:2px solid transparent;position:relative}
+.cor-grid button.on{border-color:var(--tx);box-shadow:0 0 0 2px var(--bg) inset}
+.cor-grid label.cor-livre{height:44px;border-radius:12px;border:2px dashed var(--bd);display:grid;place-items:center;font-size:20px;margin:0;cursor:pointer;position:relative;overflow:hidden}
+.cor-grid label.cor-livre input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.fundo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;margin-top:10px}
+.fundo-grid button{border-radius:12px;padding:10px 8px;border:2px solid var(--bd);font-size:.8rem;text-align:left;color:#ececec}
+.fundo-grid button i{display:flex;gap:3px;margin-bottom:6px}.fundo-grid button i b{width:14px;height:14px;border-radius:4px;display:block}
+.fundo-grid button.on{border-color:var(--ac)}
+.tema-prev{border-radius:12px;padding:12px;border:1px solid var(--bd);background:var(--bg);margin-top:12px}
 .logo-prev{width:52px;height:52px;border-radius:14px;background:var(--ac);display:grid;place-items:center;font-size:28px;flex:none;overflow:hidden}
 .logo-prev.img{background:none}
 
@@ -164,7 +175,7 @@ table.t td.r,table.t th.r{text-align:right}
 .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
 .kcol h3{margin-top:0;display:flex;justify-content:space-between}
 .pedido.novo{animation:pisca 1s ease-in-out 4}
-@keyframes pisca{50%{border-color:var(--ac);box-shadow:0 0 0 3px rgba(245,165,36,.35)}}
+@keyframes pisca{50%{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 35%,transparent)}}
 .atraso{color:var(--er);font-weight:600}
 .mesa-n{font-family:'Space Grotesk';font-size:1.25rem;font-weight:700}
 #segCols{display:none;margin-bottom:12px}
@@ -311,7 +322,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.3";
+const VERSAO = "3.4";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -342,6 +353,27 @@ async function resolverBar(email) {
   if (!id) return null;
   const b = await getDoc(doc(db, "bares", id));
   return b.exists() ? { id, ...b.data() } : null;
+}
+
+/* ---------- Cores do bar (config/geral: cor de destaque + fundo) ---------- */
+const FUNDOS = {
+  escuro: { nome: "Grafite", bg: "#111214", s1: "#1a1b1e", s2: "#222327", s3: "#2c2d32", bd: "#303137" },
+  noite: { nome: "Azul-noite", bg: "#0d1220", s1: "#151b2b", s2: "#1c2335", s3: "#262f46", bd: "#2d3750" },
+  cafe: { nome: "Café", bg: "#15110e", s1: "#1f1915", s2: "#28211b", s3: "#332a23", bd: "#3c322a" },
+  mata: { nome: "Verde-mata", bg: "#0d1512", s1: "#141e1a", s2: "#1b2722", s3: "#24322c", bd: "#2b3a33" },
+  vinho: { nome: "Vinho", bg: "#170e12", s1: "#21151a", s2: "#2a1b22", s3: "#35232c", bd: "#3e2a33" }
+};
+const COR_PADRAO = "#f5a524";
+const corOk = c => /^#[0-9a-f]{6}$/i.test(c || "");
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgbHex = a => "#" + a.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+const clarear = (h, k) => rgbHex(hexRgb(h).map(v => v + (255 - v) * k));
+const luz = h => { const [r, g, b] = hexRgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+function aplicarTema(cfg) {
+  const s = document.documentElement.style, f = FUNDOS[cfg?.fundo] || FUNDOS.escuro, ac = corOk(cfg?.cor) ? cfg.cor : COR_PADRAO;
+  ["bg", "s1", "s2", "s3", "bd"].forEach(k => s.setProperty("--" + k, f[k]));
+  s.setProperty("--ac", ac); s.setProperty("--ac2", clarear(ac, .28)); s.setProperty("--acx", luz(ac) > .33 ? "#15120a" : "#ffffff");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", f.bg);
 }
 const ICONE_APP = "🧾";
 /* ---------- Ícone do bar (emoji ou imagem, salvo em config/geral) ---------- */
@@ -777,8 +809,9 @@ async function verificar(u) {
 
 function iniciar() {
   S.unsub.push(onSnapshot(doc(db, C.config, "geral"), d => {
-    S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) }; aplicarIcone(S.cfg);
+    S.cfg = { nomeBar: "Bar", taxaServico: 10, ...(d.data() || {}) }; aplicarIcone(S.cfg); aplicarTema(S.cfg);
     if ($("#icBox")) renderIcone();
+    if ($("#corBox")) renderCores();
     S.cfgOk = true; $("#nomeBar").textContent = S.cfg.nomeBar; document.title = S.cfg.nomeBar + " · Central"; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.mesas), s => {
@@ -1264,8 +1297,8 @@ const CSS_MENU = `
 .folha .m-rod b{font-size:12pt;display:block;margin-bottom:1mm}
 .folha .m-rod span{font-size:9.5pt;display:block;line-height:1.45;opacity:.85}
 .folha .m-livre{text-align:center;font-size:9pt;opacity:.7;margin-top:6mm}
-.folha.escuro{background:#15161a;color:#f1f1f1}.folha.escuro .m-top h1,.folha.escuro .m-n .p{color:#f5a524}
-.folha.escuro .m-cat h2{color:#f5a524;border-bottom:1px solid #3a3b42}.folha.escuro .m-rod{background:#22232a}
+.folha.escuro{background:#15161a;color:#f1f1f1}.folha.escuro .m-top h1,.folha.escuro .m-n .p{color:var(--ac)}
+.folha.escuro .m-cat h2{color:var(--ac);border-bottom:1px solid #3a3b42}.folha.escuro .m-rod{background:#22232a}
 .folha.claro{background:#fbf6ea;color:#2a2118}.folha.claro .m-top h1,.folha.claro .m-cat h2{font-family:Georgia,'DejaVu Serif',serif;color:#7a4b12}
 .folha.claro .m-top h1{font-style:italic}.folha.claro .m-cat h2{border-bottom:1px solid #d9c7a4;letter-spacing:.08em}.folha.claro .m-n .p{color:#7a4b12}.folha.claro .m-rod{background:#f1e6cf}
 .folha.boteco{background:#fffdf5;color:#1e1e1e}.folha.boteco .m-top{background:#c62828;color:#fff;margin:-14mm -14mm 8mm;padding:10mm 14mm 8mm;border-bottom:3mm solid #ffd23f}
@@ -1430,6 +1463,8 @@ function renderConfig() {
       <button class="btn block" id="cfSalvar" style="margin-top:14px">Salvar</button></div>
     <h3>Ícone do bar</h3>
     <div class="card" id="icBox"></div>
+    <h3>Cores do bar</h3>
+    <div class="card" id="corBox"></div>
     <h3>Links</h3>
     <div class="card"><div class="small muted">App do garçom (envie para a equipe)</div><div style="word-break:break-all;margin:4px 0 8px">${esc(urlG)}</div>
       <button class="btn ghost sm" id="cpG">Copiar link do garçom</button>
@@ -1469,7 +1504,30 @@ function renderConfig() {
     salvar(setDoc(doc(db, C.config, "geral"), d, { merge: true }), "Configurações salvas");
   };
   $("#cpG").onclick = () => copiar(urlG); $("#cpC").onclick = () => copiar(urlC);
-  renderIcone();
+  renderIcone(); renderCores();
+}
+const CORES = [["Âmbar", "#f5a524"], ["Laranja", "#ff7a1a"], ["Vermelho", "#e5484d"], ["Rosa", "#ec4899"], ["Roxo", "#9b7bff"],
+  ["Azul", "#3b9eff"], ["Turquesa", "#14b8a6"], ["Verde", "#22c55e"], ["Limão", "#c6e33a"], ["Dourado", "#d4a73a"], ["Cobre", "#c8784a"], ["Prata", "#b8bcc6"]];
+function renderCores() {
+  const box = $("#corBox"); if (!box) return;
+  const cor = corOk(S.cfg.cor) ? S.cfg.cor.toLowerCase() : COR_PADRAO, fundo = FUNDOS[S.cfg.fundo] ? S.cfg.fundo : "escuro";
+  const livre = !CORES.some(([, h]) => h === cor);
+  box.innerHTML = `<div class="small muted">Valem para a central, o app do garçom, o cardápio online e a comanda dos clientes.</div>
+    <label style="margin-top:12px">Cor de destaque (botões e realces)</label>
+    <div class="cor-grid">${CORES.map(([n, h]) => `<button title="${n}" data-cor="${h}" class="${h === cor ? "on" : ""}" style="background:${h}"></button>`).join("")}
+      <label class="cor-livre ${livre ? "on" : ""}" title="Outra cor" style="${livre ? `background:${cor};border:2px solid var(--tx)` : ""}">🎨<input type="color" id="corLivre" value="${cor}"></label></div>
+    <label style="margin-top:14px">Fundo</label>
+    <div class="fundo-grid">${Object.entries(FUNDOS).map(([k, f]) => `<button data-fundo="${k}" class="${k === fundo ? "on" : ""}" style="background:${f.bg}"><i><b style="background:${f.s1}"></b><b style="background:${f.s3}"></b><b style="background:${cor}"></b></i>${f.nome}</button>`).join("")}</div>
+    <div class="tema-prev"><div class="row between"><b>Prévia</b><span class="badge st-rec">Recebido</span></div>
+      <div class="row" style="margin-top:10px;gap:8px"><span class="btn sm">Botão principal</span><span class="btn ghost sm">Secundário</span></div></div>
+    ${S.cfg.cor || S.cfg.fundo ? `<button class="btn ghost block sm" id="corPadrao" style="margin-top:10px">Voltar às cores padrão</button>` : ""}`;
+  const gravar = (d, msg) => salvar(setDoc(doc(db, C.config, "geral"), d, { merge: true }), msg);
+  $$("[data-cor]", box).forEach(b => b.onclick = () => gravar({ cor: b.dataset.cor }, "Cor atualizada"));
+  $$("[data-fundo]", box).forEach(b => b.onclick = () => gravar({ fundo: b.dataset.fundo }, "Fundo atualizado"));
+  const cl = $("#corLivre", box);
+  cl.oninput = () => aplicarTema({ ...S.cfg, cor: cl.value });                  // prévia enquanto escolhe
+  cl.onchange = () => corOk(cl.value) && gravar({ cor: cl.value.toLowerCase() }, "Cor atualizada");
+  $("#corPadrao", box)?.addEventListener("click", () => gravar({ cor: "", fundo: "" }, "Cores padrão restauradas"));
 }
 const ICONES = ["🍺", "🍻", "🍷", "🥃", "🍸", "🍹", "🧉", "☕", "🍔", "🍕", "🌭", "🍖", "🍗", "🍤", "🍣", "🌮", "🍟", "🥩", "🧀", "🎵", "🎱", "⚽", "🔥", "⭐", "🧾", "🍽️"];
 function renderIcone() {
@@ -1566,7 +1624,7 @@ let _pubPend = null;
 function sincronizarPublico() {
   if (!S.produtosOk || !S.publicoOk || !S.cfgOk) return;
   const dado = {
-    nomeBar: S.cfg.nomeBar || "Bar", whatsBar: S.cfg.whatsBar || "", icone: S.cfg.icone || "", logo: LOGO_OK(S.cfg.logo) ? S.cfg.logo : "",
+    nomeBar: S.cfg.nomeBar || "Bar", whatsBar: S.cfg.whatsBar || "", icone: S.cfg.icone || "", logo: LOGO_OK(S.cfg.logo) ? S.cfg.logo : "", cor: corOk(S.cfg.cor) ? S.cfg.cor : "", fundo: FUNDOS[S.cfg.fundo] ? S.cfg.fundo : "",
     expediente: expAberto(S.cfg), online: !!S.cfg.deliveryAberto, aberto: expAberto(S.cfg) && !!S.cfg.deliveryAberto,
     horario: S.cfg.horario || "", entrega: S.cfg.fazEntrega !== false,
     taxaEntrega: Math.round((S.cfg.taxaEntrega || 0) * 100),
