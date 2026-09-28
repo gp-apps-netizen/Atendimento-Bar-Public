@@ -233,7 +233,7 @@ html.claro .exp-pill.off,html.claro .exp-faixa{background:#fdeaea;border-color:#
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut, inMemoryPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, serverTimestamp, writeBatch, runTransaction, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ================= CONFIGURAÇÃO =================
    Cole aqui o firebaseConfig do projeto "atendimento-bar"
@@ -249,7 +249,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.5";
+const VERSAO = "3.7";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -757,7 +757,8 @@ function iniciar() {
     S.pedidos = peds; S.pedidosOk = true; render();
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.produtos), s => {
-    S.produtos = s.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.ativo !== false)
+    S.todosProdutos = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    S.produtos = S.todosProdutos.filter(p => p.ativo !== false)
       .sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || a.nome.localeCompare(b.nome));
   }, erroSnap));
   S.unsub.push(onSnapshot(col(C.clientes), s => {
@@ -946,7 +947,10 @@ async function acaoPedido(acao, id) {
   if (acao === "entregar") salvar(updateDoc(ref, { status: "entregue", entregueEm: serverTimestamp() }), "Marcado como entregue");
   if (acao === "cancelar") {
     if (!await confirmar("Cancelar este pedido?", "Cancelar pedido", true)) return;
-    salvar(updateDoc(ref, { status: "cancelado", canceladoPor: S.perfil.nome }), "Pedido cancelado");
+    const p = S.pedidos.find(x => x.id === id), b = writeBatch(db);
+    if (p?.baixaEstoque && p.status !== "cancelado") movEstoque(b, p.itens, +1);
+    b.update(ref, { status: "cancelado", canceladoPor: S.perfil.nome });
+    salvar(b.commit(), "Pedido cancelado");
   }
 }
 
@@ -968,6 +972,23 @@ function editarOcupante(m, id) {
   $("#rm", md.el)?.addEventListener("click", () => {
     salvar(updateDoc(doc(db, C.mesas, m.id), { ocupantes: m.ocupantes.filter(x => x.id !== o.id) })); md.fechar();
   });
+}
+
+
+/* ---------- Estoque: baixa/devolução dentro do mesmo batch do pedido ---------- */
+function movEstoque(b, itens, sinal) {           // sinal: -1 dá baixa, +1 devolve
+  const soma = {};
+  (itens || []).forEach(i => { const p = S.produtos.find(x => x.id === i.pid) || (S.todosProdutos || []).find(x => x.id === i.pid); if (p && p.controlaEstoque) soma[p.id] = (soma[p.id] || 0) + (Number(i.qtd) || 1); });
+  Object.entries(soma).forEach(([id, q]) => b.update(doc(db, C.produtos, id), { estoque: increment(sinal * q) }));
+  return Object.keys(soma).length > 0;
+}
+const qtdEstoque = p => Number(p?.estoque) || 0;
+function seloEstoque(p) {
+  if (!p?.controlaEstoque) return "";
+  const q = qtdEstoque(p), min = Number(p.estoqueMin) || 0;
+  if (q <= 0) return `<span class="badge st-canc">sem estoque</span>`;
+  if (q <= Math.max(min, 3)) return `<span class="badge st-rec">restam ${q}</span>`;
+  return "";
 }
 
 /* ---------- Novo pedido ---------- */
@@ -1003,7 +1024,7 @@ function novoPedido(mesa) {
       q("#corpo").innerHTML = lista.length ? `<div class="list">${lista.map(p => {
         const h = cat === "Todas" && p.categoria !== ultCat ? `<h3>${esc(p.categoria || "Outros")}</h3>` : ""; ultCat = p.categoria;
         const n = qtdDe(p.id);
-        return `${h}<div class="prod"><div class="pn"><b>${esc(p.nome)}</b><small>${brlR(p.preco)}</small></div>
+        return `${h}<div class="prod"><div class="pn"><b>${esc(p.nome)}</b><small>${brlR(p.preco)} ${seloEstoque(p)}</small></div>
           <div class="qty">${n ? `<button data-sub="${p.id}">−</button><span>${n}</span>` : ""}<button class="plus" data-add="${p.id}">+</button></div></div>`;
       }).join("")}</div>` : `<div class="empty">${S.produtos.length ? "Nada encontrado." : "O cardápio ainda está vazio. A Central cadastra os produtos em Cardápio."}</div>`;
       $$("[data-add]", md.el).forEach(b => b.onclick = () => { add(S.produtos.find(p => p.id === b.dataset.add)); corpo(); rodape(); });
@@ -1047,9 +1068,11 @@ function novoPedido(mesa) {
     if ((m.status || "livre") === "livre") { toast("Esta mesa foi fechada", "erro"); return md.fechar(); }
     if (!expAberto(S.cfg)) { toast("🔴 O expediente foi encerrado — pedido não enviado", "erro"); return md.fechar(); }
     const b = writeBatch(db);
+    const itensPed = cart.map(l => ({ pid: l.pid, nome: l.nome, preco: l.preco, qtd: l.qtd, obs: l.obs.trim(), para: l.para }));
+    const baixa = movEstoque(b, itensPed, -1);
     b.set(doc(col(C.pedidos)), {
       mesaId: m.id, mesaNumero: m.numero, mesaNome: m.nome || "", sessao: m.sessao,
-      itens: cart.map(l => ({ pid: l.pid, nome: l.nome, preco: l.preco, qtd: l.qtd, obs: l.obs.trim(), para: l.para })),
+      itens: itensPed, baixaEstoque: baixa,
       status: "recebido", aberto: true, garcomEmail: S.perfil.email, garcomNome: S.perfil.nome,
       criadoEm: serverTimestamp(), dia: diaOperacao()
     });
