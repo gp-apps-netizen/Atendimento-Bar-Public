@@ -341,7 +341,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 let DONO = "godoygpx@gmail.com";    // responsável do bar aberto (vem de bares/{id}.donoEmail)
-const VERSAO = "3.7";
+const VERSAO = "3.8";
 /* ================================================ */
 const CONFIG_OK = !String(firebaseConfig.apiKey).startsWith("COLE");
 if (!CONFIG_OK) {
@@ -685,9 +685,13 @@ function sincronizarComandas(S) {
   }
 }
 function ouvirComandas(S, depois) {
-  return onSnapshot(col(C.comandas), s => {
-    S.comandas = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); S.comandasOk = true; depois();
-  }, e => console.warn("comandas", e));
+  // só as comandas ativas: as encerradas ficam guardadas mas não são relidas a cada abertura do app
+  const aplicar = s => { S.comandas = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); S.comandasOk = true; depois(); };
+  let parar = onSnapshot(query(col(C.comandas), where("status", "!=", "encerrada")), aplicar, e => {
+    console.warn("comandas (filtro)", e);
+    parar = onSnapshot(col(C.comandas), aplicar, e2 => console.warn("comandas", e2));   // plano B: lê todas, como antes
+  });
+  return () => parar();
 }
 
 /* ---------- Link / QR Code da mesa (um por abertura; expira ao fechar) ---------- */
