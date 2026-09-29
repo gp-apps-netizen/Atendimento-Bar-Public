@@ -96,6 +96,7 @@ main{max-width:640px;margin:0 auto;padding:16px}
     </div>
     <p class="small muted" id="kTotal" style="margin:2px 2px 0"></p>
     <button class="btn block" id="btnNovo" style="margin:10px 0 4px">+ Novo bar</button>
+    <button class="btn ghost block hidden" id="btnTeste" style="margin:8px 0 4px">🧪 Criar meu salão de teste</button>
     <h3 id="hLista">Bares</h3>
     <div class="seg" id="filtro"><button data-f="todos" class="on">Todos</button><button data-f="ativos">Ativos</button><button data-f="vencidos">Vencidos</button><button data-f="suspensos">Suspensos</button></div>
     <div id="lista"></div>
@@ -118,7 +119,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "2.2";
+const VERSAO = "2.3";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -263,6 +264,7 @@ function render() {
   $("#lAtivos").textContent = `${T.plural} ativos`;
   $("#btnNovo").textContent = `+ Novo ${T.nomeMin}`;
   $("#hLista").textContent = T.plural;
+  $("#btnTeste").classList.toggle("hidden", !(S.app === "salao" && !S.saloes.some(b => (b.donoEmail || "").toLowerCase() === SUPER)));
   const rec = arr => arr.filter(b => b.status === "ativo" && b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0);
   $("#kTotal").textContent = `Receita mensal de todos os apps: ${brl(rec(S.bares) + rec(S.saloes))}`;
   const ativos = L0.filter(b => b.status === "ativo");
@@ -340,6 +342,41 @@ $("#btnNovo").onclick = () => {
       md.fechar(); toast(`${T.nome} criado!`, "ok");
       boasVindas({ id, nome, donoNome, email }, senhaNova ? senha : null, S.app);
     } catch (e) { console.error(e); volta(erroMsg(e)); }
+  };
+};
+
+/* Salão próprio para testes: login do administrador, sem cobrança */
+$("#btnTeste").onclick = () => {
+  const md = abrirModal(`<div class="mh"><h2>Meu salão de teste</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="small muted">Fica no plano Próprio (sem cobrança) e você entra na área do salão com o seu login de administrador (${esc(SUPER)}), como no Bar teste.</p>
+    <label>Nome do salão</label><input id="tNome" value="Salão Teste GPX">
+    <label>Identificador (vai no link)</label><input id="tId" autocapitalize="off" value="salao-teste-gpx">
+    <button class="btn block" id="tOk" style="margin-top:16px">Criar salão de teste</button>`);
+  let mexeu = false;
+  $("#tId", md.el).oninput = () => { mexeu = true; };
+  $("#tNome", md.el).oninput = () => { if (!mexeu) $("#tId", md.el).value = slug($("#tNome", md.el).value); };
+  $("#tOk", md.el).onclick = async () => {
+    const nome = $("#tNome", md.el).value.trim(), id = $("#tId", md.el).value.trim();
+    if (!nome) return toast("Informe o nome", "erro");
+    if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return toast("Identificador: 3 a 30 caracteres, só a-z, 0-9 e hífen", "erro");
+    const bt = $("#tOk", md.el); bt.disabled = true; bt.textContent = "Criando…";
+    try {
+      if ((await getDoc(doc(db, "saloes", id))).exists()) { bt.disabled = false; bt.textContent = "Criar salão de teste"; return toast("Já existe um salão com esse identificador", "erro"); }
+      const u = await getDoc(doc(db, "usuariosSalao", SUPER));
+      if (u.exists()) { bt.disabled = false; bt.textContent = "Criar salão de teste"; return toast(`Seu login já está no salão “${u.data().saloId}”`, "erro"); }
+      const b = writeBatch(db);
+      b.set(doc(db, "saloes", id), { nome, donoEmail: SUPER, donoNome: "Administrador", status: "ativo", plano: "proprio", mensalidade: 0, vencimento: null, obs: "Salão de testes do administrador", criadoEm: serverTimestamp() });
+      b.set(doc(db, "usuariosSalao", SUPER), { saloId: id });
+      b.set(doc(db, `saloes/${id}/config`, "salao"), { nome });
+      await b.commit();
+      md.fechar(); toast("Salão de teste criado!", "ok");
+      const L = linksSalao(id);
+      abrirModal(`<div class="mh"><h2>${esc(nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+        <p class="small">Entre com o seu login de administrador. Na Agenda, toque em <b>Carregar exemplo</b> para já ter serviços, equipe e pacotes.</p>
+        <div class="small muted" style="margin-top:10px">Área do salão</div><div class="link">${esc(L.admin)}</div>
+        <div class="small muted">Link de agendamento (clientes)</div><div class="link">${esc(L.agenda)}</div>
+        <div class="row" style="margin-top:8px"><a class="btn grow" href="${esc(L.admin)}" target="_blank" style="text-decoration:none">Abrir área do salão</a><a class="btn ghost grow" href="${esc(L.agenda)}" target="_blank" style="text-decoration:none">Abrir link</a></div>`);
+    } catch (e) { console.error(e); bt.disabled = false; bt.textContent = "Criar salão de teste"; toast(erroMsg(e), "erro"); }
   };
 };
 
