@@ -118,7 +118,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "2.1";
+const VERSAO = "2.2";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -189,8 +189,8 @@ const TIPOS = {
   salao: {
     col: "saloes", users: "usuariosSalao", campo: "saloId", nome: "Salão", nomeMin: "salão", plural: "Salões", pluralMin: "salões", o: "o",
     exemplo: "Ex.: Studio Bella", idEx: "studio-bella",
-    subs: ["config", "servicos", "profissionais", "pacotes", "ocupados", "agendamentos", "clientes", "clientePacotes", "privado"],
-    perda: "agenda, clientes, serviços, pacotes, equipe e relatórios, e o dono perde o acesso",
+    subs: ["config", "servicos", "profissionais", "pacotes", "ocupados", "agendamentos", "clientes", "clientePacotes", "privado", "produtos", "vendas", "movimentos"],
+    perda: "agenda, clientes, serviços, pacotes, produtos, equipe e relatórios, e o dono perde o acesso",
   },
 };
 const tp = () => TIPOS[S.app];
