@@ -58,6 +58,16 @@ main{max-width:640px;margin:0 auto;padding:16px}
 .modal{background:var(--s1);border:1px solid var(--bd);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
 @media(min-width:600px){.modal-bg{align-items:center}.modal{border-radius:18px}}
 .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.uso-item{margin-top:12px}.uso-item .num{font-family:'Space Grotesk';font-size:1.05rem}
+.uso-barra{height:8px;background:var(--s3);border-radius:4px;overflow:hidden;margin:6px 0 4px}
+.uso-barra i{display:block;height:100%;border-radius:4px;background:var(--ok)}.uso-barra i.warn{background:var(--ac)}.uso-barra i.er{background:var(--er)}
+.uso-graf svg{width:100%;height:auto;display:block;margin-top:8px}
+.uso-graf .g{stroke:var(--bd);stroke-width:1}.uso-graf .g.lim{stroke:var(--mu);stroke-dasharray:4 3}
+.uso-graf .ax{fill:var(--mu);font-size:9px}
+.uso-graf .bar{fill:var(--info)}.uso-graf .bar.warn{fill:var(--ac)}.uso-graf .bar.er{fill:var(--er)}.uso-graf .bar.sel{fill:var(--tx)}
+.uso-graf .hit{cursor:pointer}
+.uso-tab{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}.uso-tab th,.uso-tab td{text-align:right;padding:5px 4px;border-bottom:1px solid var(--bd)}.uso-tab th:first-child,.uso-tab td:first-child{text-align:left}
+details summary{cursor:pointer;color:var(--mu)}
 #toast{position:fixed;left:16px;right:16px;bottom:20px;margin:0 auto;max-width:480px;background:var(--s3);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .2s;pointer-events:none;opacity:0}
 #toast.ok{border-color:var(--ok)}#toast.erro{border-color:var(--er)}
 </style>
@@ -87,19 +97,22 @@ main{max-width:640px;margin:0 auto;padding:16px}
   </section>
 
   <section id="t-painel" class="hidden">
-    <div class="seg apps" id="appSeg"><button data-a="bar" class="on">🍺 Bares</button><button data-a="salao">✂️ Salões</button></div>
+    <div class="seg apps" id="appSeg"><button data-a="bar" class="on">🍺 Bares</button><button data-a="salao">✂️ Salões</button><button data-a="uso">📊 Uso</button></div>
+    <div id="usoBox" class="hidden"></div>
+    <div id="appBox">
     <div class="kpis">
       <div class="kpi"><small id="lAtivos">Bares ativos</small><div class="num" id="kAtivos">0</div></div>
       <div class="kpi"><small>Receita mensal</small><div class="num" id="kReceita">R$ 0</div></div>
       <div class="kpi"><small>Vencidos</small><div class="num" id="kVencidos">0</div></div>
       <div class="kpi"><small>Suspensos</small><div class="num" id="kSuspensos">0</div></div>
     </div>
-    <p class="small muted" id="kTotal" style="margin:2px 2px 0"></p>
+    <div class="row between" style="margin:2px 2px 0"><p class="small muted" id="kTotal"></p><button class="btn ghost sm" id="btnCobranca">💬 Cobrança</button></div>
     <button class="btn block" id="btnNovo" style="margin:10px 0 4px">+ Novo bar</button>
     <button class="btn ghost block hidden" id="btnTeste" style="margin:8px 0 4px">🧪 Criar meu salão de teste</button>
     <h3 id="hLista">Bares</h3>
     <div class="seg" id="filtro"><button data-f="todos" class="on">Todos</button><button data-f="ativos">Ativos</button><button data-f="vencidos">Vencidos</button><button data-f="suspensos">Suspensos</button></div>
     <div id="lista"></div>
+    </div>
   </section>
 </main>
 
@@ -119,7 +132,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "2.3";
+const VERSAO = "2.5";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -281,7 +294,13 @@ function render() {
     </button>`).join("") || `<div class="empty">${L0.length ? `Nenhum ${T.nomeMin} neste filtro.` : `Nenhum ${T.nomeMin} cadastrado.`}</div>`;
   $$("[data-bar]").forEach(x => x.onclick = () => detalhes(x.dataset.bar));
 }
-$$("#appSeg button").forEach(b => b.onclick = () => { S.app = b.dataset.a; $$("#appSeg button").forEach(x => x.classList.toggle("on", x === b)); render(); });
+$$("#appSeg button").forEach(b => b.onclick = () => {
+  $$("#appSeg button").forEach(x => x.classList.toggle("on", x === b));
+  const uso = b.dataset.a === "uso";
+  $("#usoBox").classList.toggle("hidden", !uso); $("#appBox").classList.toggle("hidden", uso);
+  if (uso) return renderUso();
+  S.app = b.dataset.a; render();
+});
 $$("#filtro button").forEach(b => b.onclick = () => { S.filtro = b.dataset.f; $$("#filtro button").forEach(x => x.classList.toggle("on", x === b)); render(); });
 
 /* ---------- Novo bar ---------- */
@@ -330,7 +349,7 @@ $("#btnNovo").onclick = () => {
       catch (e) { if (e.code !== "auth/email-already-in-use") return volta(erroMsg(e)); senhaNova = false; }
       const b = writeBatch(db);
       b.set(doc(db, T.col, id), { nome, donoEmail: email, donoNome, status: "ativo", plano: "mensal",
-        mensalidade: cents(parseNum(v("#nValor"))), vencimento: v("#nVenc") || null, obs: v("#nObs"), criadoEm: serverTimestamp() });
+        mensalidade: cents(parseNum(v("#nValor"))), vencimento: v("#nVenc") || null, obs: v("#nObs"), cobranca: cobrancaAtual(), criadoEm: serverTimestamp() });
       b.set(doc(db, T.users, email), { [T.campo]: id });
       if (ehSalao) {
         b.set(doc(db, `saloes/${id}/config`, "salao"), { nome });
@@ -342,6 +361,33 @@ $("#btnNovo").onclick = () => {
       md.fechar(); toast(`${T.nome} criado!`, "ok");
       boasVindas({ id, nome, donoNome, email }, senhaNova ? senha : null, S.app);
     } catch (e) { console.error(e); volta(erroMsg(e)); }
+  };
+};
+
+/* ---------- Dados de cobrança (vão para cada bar/salão para o aviso de vencimento) ---------- */
+function cobrancaAtual() {
+  try { const c = JSON.parse(localStorage.getItem("cobranca") || "null"); if (c) return c; } catch (e) {}
+  const x = [...S.bares, ...S.saloes].find(b => b.cobranca);
+  return x ? x.cobranca : { whats: "", pix: "", dias: 5 };
+}
+$("#btnCobranca").onclick = () => {
+  const c = cobrancaAtual();
+  const md = abrirModal(`<div class="mh"><h2>Aviso de vencimento</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="small muted">Os donos de bares e salões veem um aviso no app quando a mensalidade está perto de vencer ou vencida, com botões para copiar a chave Pix e avisar o pagamento pelo seu WhatsApp.</p>
+    <label>Seu WhatsApp para cobrança</label><input id="cbW" inputmode="tel" placeholder="(11) 90000-0000" value="${esc(c.whats || "")}">
+    <label>Chave Pix</label><input id="cbP" placeholder="CPF, e-mail, telefone ou chave aleatória" value="${esc(c.pix || "")}">
+    <label>Avisar quantos dias antes</label><select id="cbD">${[1, 2, 3, 5, 7, 10].map(n => `<option value="${n}" ${+c.dias === n ? "selected" : ""}>${n} dia${n > 1 ? "s" : ""}</option>`).join("")}</select>
+    <p class="small muted" style="margin-top:8px">Planos Próprio/cortesia não recebem aviso.</p>
+    <button class="btn block" id="cbOk" style="margin-top:14px">Salvar e aplicar em todos</button>`);
+  $("#cbOk", md.el).onclick = async () => {
+    const d = { whats: $("#cbW", md.el).value.trim(), pix: $("#cbP", md.el).value.trim(), dias: +$("#cbD", md.el).value || 5 };
+    const bt = $("#cbOk", md.el); bt.disabled = true; bt.textContent = "Aplicando…";
+    try {
+      const todos = [...S.bares.map(b => ["bares", b.id]), ...S.saloes.map(b => ["saloes", b.id])];
+      for (let i = 0; i < todos.length; i += 400) { const b = writeBatch(db); todos.slice(i, i + 400).forEach(([c, id]) => b.update(doc(db, c, id), { cobranca: d })); await b.commit(); }
+      localStorage.setItem("cobranca", JSON.stringify(d));
+      md.fechar(); toast(`Aplicado em ${todos.length} cliente${todos.length === 1 ? "" : "s"}`, "ok");
+    } catch (e) { console.error(e); toast(erroMsg(e), "erro"); bt.disabled = false; bt.textContent = "Salvar e aplicar em todos"; }
   };
 };
 
@@ -548,6 +594,140 @@ function editar(b) {
       toast("Salvo", "ok"); md.fechar();
     } catch (e) { toast(erroMsg(e), "erro"); }
   };
+}
+
+/* ---------- Uso do Firebase (Cloud Monitoring, leitura com o seu login Google) ---------- */
+const PROJETO = firebaseConfig.projectId;
+const COTA = { read: 50000, write: 20000, delete: 20000 };
+const METRICAS = { read: ["document/read_count", "document/read_ops_count"], write: ["document/write_count", "document/write_ops_count"], delete: ["document/delete_count", "document/delete_ops_count"] };
+const U = { token: null, exp: 0, dados: null, carregando: false, erro: "", dias: 30, sel: null };
+try { const t = JSON.parse(sessionStorage.getItem("usoToken") || "null"); if (t && t.exp > Date.now() + 60000) { U.token = t.token; U.exp = t.exp; } } catch (e) {}
+const clientId = () => { try { return localStorage.getItem("usoClientId") || ""; } catch (e) { return ""; } };
+/* meia-noite do Pacífico (quando a cota zera) em UTC */
+function meiaNoitePacifico(offsetDias = 0) {
+  const agora = new Date();
+  const partes = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false, timeZoneName: "shortOffset" }).formatToParts(agora).map(p => [p.type, p.value]));
+  const off = parseInt((partes.timeZoneName || "GMT-8").replace("GMT", "")) || -8;
+  return new Date(Date.UTC(+partes.year, +partes.month - 1, +partes.day + offsetDias, -off, 0, 0));
+}
+function carregarGIS() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  return new Promise((ok, erro) => { const s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.onload = ok; s.onerror = () => erro(new Error("Sem conexão com o Google")); document.head.appendChild(s); });
+}
+async function conectarGoogle() {
+  const cid = clientId(); if (!cid) return;
+  await carregarGIS();
+  const tc = google.accounts.oauth2.initTokenClient({
+    client_id: cid, scope: "https://www.googleapis.com/auth/monitoring.read", login_hint: SUPER,
+    callback: r => {
+      if (r.error) { U.erro = "Não foi possível autorizar: " + r.error; renderUso(); return; }
+      U.token = r.access_token; U.exp = Date.now() + (r.expires_in || 3600) * 1000;
+      try { sessionStorage.setItem("usoToken", JSON.stringify({ token: U.token, exp: U.exp })); } catch (e) {}
+      carregarUso();
+    }
+  });
+  tc.requestAccessToken({ prompt: U.token ? "" : "consent" });
+}
+async function serie(metricas, ini, fim) {
+  for (const m of metricas) {
+    const p = new URLSearchParams({
+      filter: `metric.type="firestore.googleapis.com/${m}"`, "interval.startTime": ini.toISOString(), "interval.endTime": fim.toISOString(),
+      "aggregation.alignmentPeriod": "86400s", "aggregation.perSeriesAligner": "ALIGN_SUM", "aggregation.crossSeriesReducer": "REDUCE_SUM"
+    });
+    const r = await fetch(`https://monitoring.googleapis.com/v3/projects/${PROJETO}/timeSeries?${p}`, { headers: { Authorization: "Bearer " + U.token } });
+    if (r.status === 401) { U.token = null; sessionStorage.removeItem("usoToken"); throw new Error("login"); }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error?.message || ("Erro " + r.status));
+    const pts = (j.timeSeries || []).flatMap(t => t.points || []);
+    if (pts.length || m === metricas[metricas.length - 1]) {
+      const mapa = {};
+      pts.forEach(pt => { const k = pt.interval.endTime.slice(0, 10); mapa[k] = (mapa[k] || 0) + Number(pt.value.int64Value || pt.value.doubleValue || 0); });
+      return mapa;
+    }
+  }
+  return {};
+}
+async function carregarUso() {
+  U.carregando = true; U.erro = ""; renderUso();
+  try {
+    const fim = meiaNoitePacifico(1), ini = new Date(fim.getTime() - U.dias * 864e5);
+    const [read, write, del] = await Promise.all([serie(METRICAS.read, ini, fim), serie(METRICAS.write, ini, fim), serie(METRICAS.delete, ini, fim)]);
+    const dias = [];
+    for (let i = U.dias - 1; i >= 0; i--) {
+      const fimDia = new Date(fim.getTime() - i * 864e5), k = fimDia.toISOString().slice(0, 10);
+      const rot = new Date(fimDia.getTime() - 864e5 / 2);   // meio do dia de cota, para o rótulo
+      dias.push({ k, rotulo: `${pad(rot.getDate())}/${pad(rot.getMonth() + 1)}`, read: read[k] || 0, write: write[k] || 0, delete: del[k] || 0 });
+    }
+    U.dados = { dias, em: new Date() }; U.sel = null;
+  } catch (e) { if (e.message !== "login") U.erro = e.message; }
+  U.carregando = false; renderUso();
+}
+const num = n => Math.round(n).toLocaleString("pt-BR");
+function barra(v, cota) {
+  const pct = Math.min(100, v / cota * 100), cls = pct >= 90 ? "er" : pct >= 70 ? "warn" : "ok";
+  return `<div class="uso-barra"><i class="${cls}" style="width:${Math.max(pct, v ? 1.5 : 0)}%"></i></div>`;
+}
+function grafico(dias, campo, cota, titulo) {
+  const W = 340, H = 150, pl = 34, pr = 6, pt = 10, pb = 22, n = dias.length;
+  const max = Math.max(cota * 1.08, ...dias.map(d => d[campo])) || 1;
+  const y = v => pt + (H - pt - pb) * (1 - v / max), bw = (W - pl - pr) / n, gap = 2;
+  const ticks = [0, cota / 2, cota].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" class="g${v === cota ? " lim" : ""}"/><text x="${pl - 4}" y="${y(v) + 3}" class="ax" text-anchor="end">${v >= 1000 ? Math.round(v / 1000) + "k" : v}</text>`).join("");
+  const barras = dias.map((d, i) => {
+    const v = d[campo], x = pl + i * bw + gap / 2, h = Math.max(0, y(0) - y(v)), w = Math.max(1, bw - gap);
+    const cls = v >= cota * .9 ? "er" : v >= cota * .7 ? "warn" : "";
+    return `<g class="hit" data-dia="${i}"><rect x="${pl + i * bw}" y="${pt}" width="${bw}" height="${H - pt - pb}" fill="transparent"/>${v ? `<path class="bar ${cls} ${U.sel === i ? "sel" : ""}" d="M${x},${y(0)}V${y(v) + Math.min(2, h)}q0,-2 2,-2h${Math.max(0, w - 4)}q2,0 2,2V${y(0)}Z"/>` : ""}</g>`;
+  }).join("");
+  const rot = dias.map((d, i) => ((i % Math.ceil(n / 6) === 0 && i < n - Math.ceil(n / 12)) || i === n - 1) ? `<text x="${i === n - 1 ? W - pr : pl + i * bw + bw / 2}" y="${H - 6}" class="ax" text-anchor="${i === n - 1 ? "end" : "middle"}">${d.rotulo}</text>` : "").join("");
+  return `<div class="uso-graf"><div class="row between"><b>${titulo}</b><span class="small muted">limite grátis ${num(cota)}/dia</span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${titulo} por dia">${ticks}${barras}${rot}</svg></div>`;
+}
+function renderUso() {
+  const box = $("#usoBox"); if (!box) return;
+  const cid = clientId();
+  if (!cid) {
+    box.innerHTML = `<div class="card"><b>Conectar ao consumo do Firebase</b>
+      <p class="small muted" style="margin:6px 0 10px">Os números vêm direto do Google Cloud (o mesmo que aparece no console). Precisa de uma configuração única: cole abaixo o <b>ID do cliente OAuth</b> criado no Google Cloud. O passo a passo está na conversa.</p>
+      <label>ID do cliente OAuth</label><input id="usoCid" placeholder="123…apps.googleusercontent.com" autocapitalize="off">
+      <button class="btn block" id="usoSalvarCid" style="margin-top:12px">Salvar</button></div>`;
+    $("#usoSalvarCid").onclick = () => { const v = $("#usoCid").value.trim(); if (!/\.apps\.googleusercontent\.com$/.test(v)) return toast("ID inválido: termina com .apps.googleusercontent.com", "erro"); localStorage.setItem("usoClientId", v); renderUso(); };
+    return;
+  }
+  if (!U.token || U.exp < Date.now()) {
+    box.innerHTML = `<div class="card center" style="min-height:0;padding:22px"><div style="font-size:34px">📊</div><b>Consumo do Firebase</b>
+      <p class="small muted" style="margin:6px 0 12px">Entre com a sua conta Google (${esc(SUPER)}) para ler o uso do projeto ${esc(PROJETO)}.</p>
+      ${U.erro ? `<p class="small" style="color:var(--er);margin-bottom:10px">${esc(U.erro)}</p>` : ""}
+      <button class="btn" id="usoLogin">Entrar com Google</button>
+      <button class="btn ghost sm" id="usoTrocar" style="margin-top:10px">Trocar ID do cliente</button></div>`;
+    $("#usoLogin").onclick = () => conectarGoogle().catch(e => toast(e.message, "erro"));
+    $("#usoTrocar").onclick = () => { localStorage.removeItem("usoClientId"); renderUso(); };
+    return;
+  }
+  if (U.carregando || !U.dados) {
+    box.innerHTML = U.erro ? `<div class="card"><p style="color:var(--er)">${esc(U.erro)}</p><button class="btn ghost block" id="usoTentar" style="margin-top:10px">Tentar de novo</button></div>` : `<div class="empty">Carregando consumo…</div>`;
+    if ($("#usoTentar")) $("#usoTentar").onclick = carregarUso;
+    if (!U.carregando && !U.dados && !U.erro) carregarUso();
+    return;
+  }
+  const d = U.dados.dias, hoje = d[d.length - 1], s = U.sel != null ? d[U.sel] : null;
+  const media = k => d.slice(0, -1).reduce((a, x) => a + x[k], 0) / Math.max(1, d.length - 1);
+  const pico = d.reduce((a, x) => x.read > a.read ? x : a, d[0]);
+  const item = (k, nome) => `<div class="uso-item"><div class="row between"><span>${nome}</span><b class="num">${num(hoje[k])} <small class="muted">/ ${num(COTA[k])}</small></b></div>${barra(hoje[k], COTA[k])}<div class="small muted">${Math.round(hoje[k] / COTA[k] * 100)}% do limite grátis · média ${num(media(k))}/dia</div></div>`;
+  box.innerHTML = `
+    <div class="card">
+      <div class="row between"><b>Hoje (cota do dia)</b><button class="btn ghost sm" id="usoAtualizar">↻ Atualizar</button></div>
+      <p class="small muted" style="margin:2px 0 10px">A cota zera à meia-noite do Pacífico (~${pad(meiaNoitePacifico(1).getHours())}h no seu horário).</p>
+      ${item("read", "Leituras")}${item("write", "Gravações")}${item("delete", "Exclusões")}
+    </div>
+    <div class="seg" id="usoDias">${[7, 30, 90].map(n => `<button data-d="${n}" class="${U.dias === n ? "on" : ""}">${n} dias</button>`).join("")}</div>
+    <div class="card">${grafico(d, "read", COTA.read, "Leituras por dia")}
+      <p class="small" id="usoTip" style="min-height:18px;margin-top:4px">${s ? `<b>${s.rotulo}</b>: ${num(s.read)} leituras · ${num(s.write)} gravações · ${num(s.delete)} exclusões` : `<span class="muted">Toque numa barra para ver o dia. Maior dia: ${pico.rotulo} com ${num(pico.read)} leituras.</span>`}</p></div>
+    <div class="card">${grafico(d, "write", COTA.write, "Gravações por dia")}</div>
+    <details class="card"><summary class="small">Ver tabela</summary><table class="uso-tab"><tr><th>Dia</th><th>Leituras</th><th>Gravações</th><th>Exclusões</th></tr>
+      ${d.slice().reverse().map(x => `<tr><td>${x.rotulo}</td><td>${num(x.read)}</td><td>${num(x.write)}</td><td>${num(x.delete)}</td></tr>`).join("")}</table></details>
+    <p class="small muted center" style="margin:8px 0 4px">Dados do Google Cloud Monitoring · atualizado às ${U.dados.em.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · podem atrasar alguns minutos</p>`;
+  $("#usoAtualizar").onclick = carregarUso;
+  $$("#usoDias button").forEach(b => b.onclick = () => { U.dias = +b.dataset.d; carregarUso(); });
+  $$("#usoBox .hit").forEach(g => g.onclick = () => { U.sel = U.sel === +g.dataset.dia ? null : +g.dataset.dia; renderUso(); });
 }
 
 /* ---------- Instalável (PWA) ---------- */
