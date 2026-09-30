@@ -49,7 +49,8 @@ main{max-width:640px;margin:0 auto;padding:16px}
 .bar-card .nome{font-family:'Space Grotesk';font-weight:600;font-size:1.05rem}
 .seg{display:flex;background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:3px;gap:3px;margin-bottom:10px}
 .seg button{flex:1;padding:8px;border-radius:8px;color:var(--mu);font-size:.85rem}.seg button.on{background:var(--s3);color:var(--tx)}
-.seg.apps{margin-bottom:14px}.seg.apps button{padding:11px;font-size:.95rem;font-weight:600}.seg.apps button.on{background:var(--ac);color:var(--acx)}
+.seg.apps{margin-bottom:14px}.seg.apps button{padding:8px 2px;font-size:.8rem;font-weight:600;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}.seg.apps button i{font-style:normal;font-size:1.15rem;line-height:1}
+#inscBox{margin:0 -16px -40px}#inscBox iframe{display:block;width:100%;border:0;height:calc(100dvh - 150px);min-height:480px;background:transparent}.seg.apps button.on{background:var(--ac);color:var(--acx)}
 .center{min-height:75vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px}
 .hero{font-size:52px}
 .empty{color:var(--mu);text-align:center;padding:28px 10px}
@@ -74,7 +75,7 @@ details summary{cursor:pointer;color:var(--mu)}
 </head>
 <body>
 <header class="top">
-  <div class="brand"><b>Administrador Apps</b><small id="quem">Bares e salões</small></div>
+  <div class="brand"><b>Administrador Apps</b><small id="quem">Bares, salões e inscrições</small></div>
   <button class="btn ghost sm hidden" id="btnSair">Sair</button>
 </header>
 <main>
@@ -97,8 +98,9 @@ details summary{cursor:pointer;color:var(--mu)}
   </section>
 
   <section id="t-painel" class="hidden">
-    <div class="seg apps" id="appSeg"><button data-a="bar" class="on">🍺 Bares</button><button data-a="salao">✂️ Salões</button><button data-a="uso">📊 Uso</button></div>
+    <div class="seg apps" id="appSeg"><button data-a="bar" class="on"><i>🍺</i>Bares</button><button data-a="salao"><i>✂️</i>Salões</button><button data-a="insc"><i>🎟</i>Inscrições</button><button data-a="uso"><i>📊</i>Uso</button></div>
     <div id="usoBox" class="hidden"></div>
+    <div id="inscBox" class="hidden"></div>
     <div id="appBox">
     <div class="kpis">
       <div class="kpi"><small id="lAtivos">Bares ativos</small><div class="num" id="kAtivos">0</div></div>
@@ -132,7 +134,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "2.5";
+const VERSAO = "3.0";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -255,6 +257,7 @@ onAuthStateChanged(auth, u => {
     S.bares = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
     render();
   }, e => { console.error(e); toast(erroMsg(e), "erro"); });
+  setTimeout(carregarInscricoes, 1500);
   S.unsub2 = onSnapshot(collection(db, "saloes"), s => {
     S.saloes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
     render();
@@ -279,7 +282,7 @@ function render() {
   $("#hLista").textContent = T.plural;
   $("#btnTeste").classList.toggle("hidden", !(S.app === "salao" && !S.saloes.some(b => (b.donoEmail || "").toLowerCase() === SUPER)));
   const rec = arr => arr.filter(b => b.status === "ativo" && b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0);
-  $("#kTotal").textContent = `Receita mensal de todos os apps: ${brl(rec(S.bares) + rec(S.saloes))}`;
+  $("#kTotal").textContent = `Receita mensal de todos os apps: ${brl(rec(S.bares) + rec(S.saloes) + (INSC.kpis?.receita || 0))}${INSC.kpis?.logado ? "" : " (sem inscrições)"}`;
   const ativos = L0.filter(b => b.status === "ativo");
   $("#kAtivos").textContent = ativos.length;
   $("#kReceita").textContent = brl(ativos.filter(b => b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0));
@@ -296,8 +299,9 @@ function render() {
 }
 $$("#appSeg button").forEach(b => b.onclick = () => {
   $$("#appSeg button").forEach(x => x.classList.toggle("on", x === b));
-  const uso = b.dataset.a === "uso";
-  $("#usoBox").classList.toggle("hidden", !uso); $("#appBox").classList.toggle("hidden", uso);
+  const a = b.dataset.a, uso = a === "uso", insc = a === "insc";
+  $("#usoBox").classList.toggle("hidden", !uso); $("#inscBox").classList.toggle("hidden", !insc); $("#appBox").classList.toggle("hidden", uso || insc);
+  if (insc) return abrirInscricoes();
   if (uso) return renderUso();
   S.app = b.dataset.a; render();
 });
@@ -596,13 +600,30 @@ function editar(b) {
   };
 }
 
+/* ---------- Inscrições de Eventos (projeto Firebase próprio, painel embutido) ---------- */
+const INSC_URL = "https://gp-apps-netizen.github.io/Inscricoes-Eventos/admin/?embed=1";
+const INSC = { frame: null, kpis: null };
+function abrirInscricoes() { carregarInscricoes(); }
+function carregarInscricoes() {
+  if (INSC.frame) return;
+  const f = document.createElement("iframe");   // fica dentro da aba (mover um iframe no DOM o recarregaria)
+  f.src = INSC_URL; f.title = "Inscrições de Eventos"; f.setAttribute("allow", "clipboard-write");
+  $("#inscBox").appendChild(f); INSC.frame = f;
+}
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data || e.data.tipo !== "insc-kpis") return;
+  INSC.kpis = e.data; if (typeof render === "function" && S.bares) render();
+});
+
 /* ---------- Uso do Firebase (Cloud Monitoring, leitura com o seu login Google) ---------- */
-const PROJETO = firebaseConfig.projectId;
+const PROJETOS = { "atendimento-bar": "Bares e salões", "inscricoes-eventos": "Inscrições" };
+let PROJETO = firebaseConfig.projectId;
 const COTA = { read: 50000, write: 20000, delete: 20000 };
 const METRICAS = { read: ["document/read_count", "document/read_ops_count"], write: ["document/write_count", "document/write_ops_count"], delete: ["document/delete_count", "document/delete_ops_count"] };
 const U = { token: null, exp: 0, dados: null, carregando: false, erro: "", dias: 30, sel: null };
 try { const t = JSON.parse(sessionStorage.getItem("usoToken") || "null"); if (t && t.exp > Date.now() + 60000) { U.token = t.token; U.exp = t.exp; } } catch (e) {}
-const clientId = () => { try { return localStorage.getItem("usoClientId") || ""; } catch (e) { return ""; } };
+const CLIENT_ID_PADRAO = "92179047707-qpj2f54isqkhg7jdsu7eh1k6s5f7nh28.apps.googleusercontent.com";
+const clientId = () => { try { return localStorage.getItem("usoClientId") || CLIENT_ID_PADRAO; } catch (e) { return CLIENT_ID_PADRAO; } };
 /* meia-noite do Pacífico (quando a cota zera) em UTC */
 function meiaNoitePacifico(offsetDias = 0) {
   const agora = new Date();
@@ -703,8 +724,9 @@ function renderUso() {
     return;
   }
   if (U.carregando || !U.dados) {
-    box.innerHTML = U.erro ? `<div class="card"><p style="color:var(--er)">${esc(U.erro)}</p><button class="btn ghost block" id="usoTentar" style="margin-top:10px">Tentar de novo</button></div>` : `<div class="empty">Carregando consumo…</div>`;
+    box.innerHTML = U.erro ? `<div class="card"><div class="seg" id="usoProj" style="margin:0 0 12px">${Object.entries(PROJETOS).map(([k, t]) => `<button data-p="${k}" class="${PROJETO === k ? "on" : ""}">${t}</button>`).join("")}</div><p style="color:var(--er)">${esc(U.erro)}</p><button class="btn ghost block" id="usoTentar" style="margin-top:10px">Tentar de novo</button></div>` : `<div class="empty">Carregando consumo…</div>`;
     if ($("#usoTentar")) $("#usoTentar").onclick = carregarUso;
+    $$("#usoProj button").forEach(b => b.onclick = () => { PROJETO = b.dataset.p; U.dados = null; carregarUso(); });
     if (!U.carregando && !U.dados && !U.erro) carregarUso();
     return;
   }
@@ -714,6 +736,7 @@ function renderUso() {
   const item = (k, nome) => `<div class="uso-item"><div class="row between"><span>${nome}</span><b class="num">${num(hoje[k])} <small class="muted">/ ${num(COTA[k])}</small></b></div>${barra(hoje[k], COTA[k])}<div class="small muted">${Math.round(hoje[k] / COTA[k] * 100)}% do limite grátis · média ${num(media(k))}/dia</div></div>`;
   box.innerHTML = `
     <div class="card">
+      <div class="seg" id="usoProj" style="margin:0 0 12px">${Object.entries(PROJETOS).map(([k, t]) => `<button data-p="${k}" class="${PROJETO === k ? "on" : ""}">${t}</button>`).join("")}</div>
       <div class="row between"><b>Hoje (cota do dia)</b><button class="btn ghost sm" id="usoAtualizar">↻ Atualizar</button></div>
       <p class="small muted" style="margin:2px 0 10px">A cota zera à meia-noite do Pacífico (~${pad(meiaNoitePacifico(1).getHours())}h no seu horário).</p>
       ${item("read", "Leituras")}${item("write", "Gravações")}${item("delete", "Exclusões")}
@@ -726,6 +749,7 @@ function renderUso() {
       ${d.slice().reverse().map(x => `<tr><td>${x.rotulo}</td><td>${num(x.read)}</td><td>${num(x.write)}</td><td>${num(x.delete)}</td></tr>`).join("")}</table></details>
     <p class="small muted center" style="margin:8px 0 4px">Dados do Google Cloud Monitoring · atualizado às ${U.dados.em.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · podem atrasar alguns minutos</p>`;
   $("#usoAtualizar").onclick = carregarUso;
+  $$("#usoProj button").forEach(b => b.onclick = () => { if (PROJETO === b.dataset.p) return; PROJETO = b.dataset.p; U.dados = null; carregarUso(); });
   $$("#usoDias button").forEach(b => b.onclick = () => { U.dias = +b.dataset.d; carregarUso(); });
   $$("#usoBox .hit").forEach(g => g.onclick = () => { U.sel = U.sel === +g.dataset.dia ? null : +g.dataset.dia; renderUso(); });
 }
