@@ -194,7 +194,7 @@ const erroMsg = e => ({
 }[e.code] || ("Erro: " + (e.code || e.message)));
 
 /* ---------- Tipos de app gerenciados ---------- */
-const SALAO_BASE = "https://gp-apps-netizen.github.io/Agenda-Salao/";
+const SALAO_BASE = "https://salao.gpxapps.app.br/";
 const TIPOS = {
   bar: {
     col: "bares", users: "usuarios", campo: "barId", nome: "Bar", nomeMin: "bar", plural: "Bares", pluralMin: "bares", o: "o",
@@ -601,7 +601,8 @@ function editar(b) {
 }
 
 /* ---------- Inscrições de Eventos (projeto Firebase próprio, painel embutido) ---------- */
-const INSC_URL = "https://gp-apps-netizen.github.io/Inscricoes-Eventos/admin/?embed=1";
+const INSC_URL = "https://inscricoes.gpxapps.app.br/admin/?embed=1";
+const INSC_ORIGENS = [location.origin, "https://inscricoes.gpxapps.app.br", "https://gp-apps-netizen.github.io"];
 const INSC = { frame: null, kpis: null };
 function abrirInscricoes() { carregarInscricoes(); }
 function carregarInscricoes() {
@@ -611,7 +612,7 @@ function carregarInscricoes() {
   $("#inscBox").appendChild(f); INSC.frame = f;
 }
 window.addEventListener("message", e => {
-  if (e.origin !== location.origin || !e.data || e.data.tipo !== "insc-kpis") return;
+  if (!INSC_ORIGENS.includes(e.origin) || !e.data || e.data.tipo !== "insc-kpis") return;
   INSC.kpis = e.data; if (typeof render === "function" && S.bares) render();
 });
 
