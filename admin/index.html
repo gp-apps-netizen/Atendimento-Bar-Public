@@ -134,7 +134,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "3.0";
+const VERSAO = "3.1";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -587,8 +587,13 @@ function editar(b) {
     <div class="row"><div class="grow"><label>Mensalidade (R$)</label><input id="eValor" inputmode="decimal" value="${b.mensalidade ? (b.mensalidade / 100).toFixed(2).replace(".", ",") : ""}"></div>
       <div class="grow"><label>Vencimento</label><input id="eVenc" type="date" value="${esc(b.vencimento || "")}"></div></div>
     <label>Observações</label><textarea id="eObs" rows="3">${esc(b.obs || "")}</textarea>
-    <p class="small muted" style="margin-top:8px">O identificador (${esc(b.id)}) e o e-mail do dono não mudam por aqui.</p>
+    <label>E-mail do dono (login)</label>
+    <div class="row" style="align-items:center"><div class="grow link" style="margin:0">${esc(b.donoEmail || "—")}</div>
+      ${b.donoEmail && b.donoEmail !== SUPER ? `<button class="btn ghost sm" id="eTrocar">Trocar e-mail</button>` : ""}</div>
+    <p class="small muted" style="margin-top:8px">O identificador (${esc(b.id)}) não muda.</p>
     <button class="btn block" id="eOk" style="margin-top:12px">Salvar</button>`);
+  const tr = $("#eTrocar", md.el);
+  if (tr) tr.onclick = () => { md.fechar(); trocarEmail(b); };
   $("#eOk", md.el).onclick = async () => {
     const v = s => $(s, md.el).value.trim();
     if (!v("#eNome")) return toast("Informe o nome", "erro");
@@ -597,6 +602,47 @@ function editar(b) {
         mensalidade: cents(parseNum(v("#eValor"))), vencimento: v("#eVenc") || null, obs: v("#eObs") });
       toast("Salvo", "ok"); md.fechar();
     } catch (e) { toast(erroMsg(e), "erro"); }
+  };
+}
+
+/* Troca o e-mail (login) do dono: cria o novo login e passa os acessos para ele */
+function trocarEmail(b) {
+  const T = tp(), ehBar = S.app !== "salao", velho = (b.donoEmail || "").toLowerCase();
+  const md = abrirModal(`<div class="mh"><h2>Trocar e-mail do dono</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="small muted">E-mail atual: <b style="color:var(--tx)">${esc(velho)}</b></p>
+    <label>Novo e-mail (será o login) *</label><input id="tEmail" type="email" inputmode="email" autocapitalize="off" value="${esc(velho)}">
+    <label>Senha para o novo login * (mín. 6)</label><input id="tSenha" type="text" autocomplete="off" value="${Math.random().toString(36).slice(2, 8)}">
+    <p class="small muted" style="margin-top:8px">O dono passa a entrar com o novo e-mail e esta senha. Os dados do ${T.nomeMin} não mudam. Se o novo e-mail já tiver login no Firebase, a senha dele é mantida.</p>
+    <button class="btn block" id="tOk" style="margin-top:12px">Trocar e-mail</button>`);
+  $("#tOk", md.el).onclick = async () => {
+    const novo = $("#tEmail", md.el).value.trim().toLowerCase(), senha = $("#tSenha", md.el).value.trim();
+    if (!emailOk(novo)) return toast("E-mail inválido", "erro");
+    if (novo === velho) return toast("Digite o e-mail novo (está igual ao atual)", "erro");
+    if (novo === SUPER) return toast(`Use o e-mail do dono do ${T.nomeMin}, não o seu`, "erro");
+    if (senha.length < 6) return toast("Senha com pelo menos 6 caracteres", "erro");
+    const bt = $("#tOk", md.el); bt.disabled = true; bt.textContent = "Trocando…";
+    const volta = msg => { bt.disabled = false; bt.textContent = "Trocar e-mail"; toast(msg, "erro"); };
+    try {
+      const u = await getDoc(doc(db, T.users, novo));
+      if (u.exists() && u.data()[T.campo] !== b.id) return volta(`Este e-mail já está no ${T.nomeMin} “${u.data()[T.campo]}”`);
+      let senhaNova = true;
+      try { await criarLogin(novo, senha); }
+      catch (e) { if (e.code !== "auth/email-already-in-use") return volta(erroMsg(e)); senhaNova = false; }
+      const uv = velho ? await getDoc(doc(db, T.users, velho)) : null;
+      const bt2 = writeBatch(db);
+      bt2.set(doc(db, T.users, novo), { ...(uv && uv.exists() ? uv.data() : {}), [T.campo]: b.id });
+      if (uv && uv.exists()) bt2.delete(uv.ref);
+      if (ehBar && velho) {
+        const gv = await getDoc(doc(db, `bares/${b.id}/garcons`, velho));
+        bt2.set(doc(db, `bares/${b.id}/garcons`, novo), gv.exists() ? gv.data() : { nome: b.donoNome || "", ativo: true, central: true });
+        if (gv.exists()) bt2.delete(gv.ref);
+      }
+      bt2.update(doc(db, T.col, b.id), { donoEmail: novo });
+      await bt2.commit();
+      md.fechar(); toast("E-mail trocado!", "ok");
+      boasVindas({ ...b, email: novo, donoEmail: novo }, senhaNova ? senha : null, S.app);
+      if (velho) toast(`Login antigo (${velho}) pode ser apagado em Firebase → Authentication → Users`, "ok");
+    } catch (e) { console.error(e); volta(erroMsg(e)); }
   };
 }
 
