@@ -134,7 +134,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "3.1";
+const VERSAO = "3.2";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -194,7 +194,7 @@ const erroMsg = e => ({
 }[e.code] || ("Erro: " + (e.code || e.message)));
 
 /* ---------- Tipos de app gerenciados ---------- */
-const SALAO_BASE = "https://gp-apps-netizen.github.io/Agenda-Salao/";
+const SALAO_BASE = "https://salao.gpxapps.app.br/";
 const TIPOS = {
   bar: {
     col: "bares", users: "usuarios", campo: "barId", nome: "Bar", nomeMin: "bar", plural: "Bares", pluralMin: "bares", o: "o", novo: "Novo", nenhum: "Nenhum", um: "um", do: "do", no: "no", seu: "o seu",
@@ -226,7 +226,7 @@ const linksSalao = id => ({
   agenda: new URL(`?s=${encodeURIComponent(id)}`, SALAO_BASE).href,
   suporte: new URL(`admin/?salao=${encodeURIComponent(id)}`, SALAO_BASE).href
 });
-const MARMITA_BASE = "https://gp-apps-netizen.github.io/Marmitaria/";
+const MARMITA_BASE = "https://marmita.gpxapps.app.br/";
 const linksMarmita = id => ({
   painel: new URL("loja/", MARMITA_BASE).href,
   pedir: new URL(`pedir/?m=${encodeURIComponent(id)}`, MARMITA_BASE).href,
