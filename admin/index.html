@@ -134,7 +134,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "3.2";
+const VERSAO = "3.4";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -211,8 +211,8 @@ const TIPOS = {
   marmita: {
     col: "marmitarias", users: "usuariosMarmita", campo: "marmitaId", nome: "Marmitaria", nomeMin: "marmitaria", plural: "Marmitarias", pluralMin: "marmitarias", o: "a", novo: "Nova", nenhum: "Nenhuma", um: "uma", do: "da", no: "na", seu: "a sua",
     exemplo: "Ex.: Marmitaria da Ana", idEx: "marmitaria-da-ana",
-    subs: ["produtos", "pedidos", "meta", "privado"],
-    perda: "cardápio, pedidos, relatórios e equipe, e o dono e os funcionários perdem o acesso",
+    subs: ["produtos", "pedidos", "meta", "privado", "estoque", "insumos", "movEstoque", "cardapios"],
+    perda: "cardápio, pedidos, estoque, relatórios e equipe, e o dono e os funcionários perdem o acesso",
     extra: { aberto: false, fazEntrega: true, aceitaRetirada: true, taxaEntrega: 0, freteGratisAcima: 0, pedidoMinimo: 0,
       formas: { dinheiro: true, cartao: true, pix: false, pixMP: false } },
   },
