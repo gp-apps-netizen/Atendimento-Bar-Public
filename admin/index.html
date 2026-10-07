@@ -134,7 +134,7 @@ const firebaseConfig = {
   measurementId: "G-NT0H4GQ3V7"
 };
 const SUPER = "godoygpx@gmail.com";   // único login com acesso a este painel
-const VERSAO = "3.5";
+const VERSAO = "3.6";
 /* ================================================ */
 
 const fbApp = initializeApp(firebaseConfig);
@@ -298,7 +298,9 @@ function render() {
   $("#lAtivos").textContent = `${T.plural} ativos`;
   $("#btnNovo").textContent = `+ ${T.novo} ${T.nomeMin}`;
   $("#hLista").textContent = T.plural;
-  $("#btnTeste").classList.toggle("hidden", !(S.app === "salao" && !S.saloes.some(b => (b.donoEmail || "").toLowerCase() === SUPER)));
+  const meuTeste = S.app === "salao" ? S.saloes.some(b => (b.donoEmail || "").toLowerCase() === SUPER) : S.app === "marmita" ? S.marmitas.some(b => (b.donoEmail || "").toLowerCase() === SUPER) : true;
+  $("#btnTeste").classList.toggle("hidden", meuTeste);
+  $("#btnTeste").textContent = S.app === "marmita" ? "🧪 Criar minha marmitaria de teste" : "🧪 Criar meu salão de teste";
   const rec = arr => arr.filter(b => b.status === "ativo" && b.plano !== "proprio").reduce((s, b) => s + (b.mensalidade || 0), 0);
   $("#kTotal").textContent = `Receita mensal de todos os apps: ${brl(rec(S.bares) + rec(S.saloes) + rec(S.marmitas) + (INSC.kpis?.receita || 0))}${INSC.kpis?.logado ? "" : " (sem inscrições)"}`;
   const ativos = L0.filter(b => b.status === "ativo");
@@ -415,13 +417,16 @@ $("#btnCobranca").onclick = () => {
   };
 };
 
-/* Salão próprio para testes: login do administrador, sem cobrança */
+/* Salão / marmitaria própria para testes: login do administrador, sem cobrança */
 $("#btnTeste").onclick = () => {
-  const md = abrirModal(`<div class="mh"><h2>Meu salão de teste</h2><button class="icon-btn" data-fechar>✕</button></div>
-    <p class="small muted">Fica no plano Próprio (sem cobrança) e você entra na área do salão com o seu login de administrador (${esc(SUPER)}), como no Bar teste.</p>
-    <label>Nome do salão</label><input id="tNome" value="Salão Teste GPX">
-    <label>Identificador (vai no link)</label><input id="tId" autocapitalize="off" value="salao-teste-gpx">
-    <button class="btn block" id="tOk" style="margin-top:16px">Criar salão de teste</button>`);
+  const mm = S.app === "marmita", T = tp();
+  const C = mm ? { titulo: "Minha marmitaria de teste", nome: "Marmitaria Teste GPX", id: "marmitaria-teste-gpx", users: "usuariosMarmita", campo: "marmitaId" }
+               : { titulo: "Meu salão de teste", nome: "Salão Teste GPX", id: "salao-teste-gpx", users: "usuariosSalao", campo: "saloId" };
+  const md = abrirModal(`<div class="mh"><h2>${C.titulo}</h2><button class="icon-btn" data-fechar>✕</button></div>
+    <p class="small muted">Fica no plano Próprio (sem cobrança) e você entra ${mm ? "no painel da marmitaria" : "na área do salão"} com o seu login de administrador (${esc(SUPER)}).</p>
+    <label>Nome</label><input id="tNome" value="${C.nome}">
+    <label>Identificador (vai no link)</label><input id="tId" autocapitalize="off" value="${C.id}">
+    <button class="btn block" id="tOk" style="margin-top:16px">Criar ${T.nomeMin} de teste</button>`);
   let mexeu = false;
   $("#tId", md.el).oninput = () => { mexeu = true; };
   $("#tNome", md.el).oninput = () => { if (!mexeu) $("#tId", md.el).value = slug($("#tNome", md.el).value); };
@@ -429,24 +434,35 @@ $("#btnTeste").onclick = () => {
     const nome = $("#tNome", md.el).value.trim(), id = $("#tId", md.el).value.trim();
     if (!nome) return toast("Informe o nome", "erro");
     if (!/^[a-z0-9][a-z0-9-]{2,29}$/.test(id)) return toast("Identificador: 3 a 30 caracteres, só a-z, 0-9 e hífen", "erro");
-    const bt = $("#tOk", md.el); bt.disabled = true; bt.textContent = "Criando…";
+    const bt = $("#tOk", md.el), volta = m => { bt.disabled = false; bt.textContent = `Criar ${T.nomeMin} de teste`; toast(m, "erro"); };
+    bt.disabled = true; bt.textContent = "Criando…";
     try {
-      if ((await getDoc(doc(db, "saloes", id))).exists()) { bt.disabled = false; bt.textContent = "Criar salão de teste"; return toast("Já existe um salão com esse identificador", "erro"); }
-      const u = await getDoc(doc(db, "usuariosSalao", SUPER));
-      if (u.exists()) { bt.disabled = false; bt.textContent = "Criar salão de teste"; return toast(`Seu login já está no salão “${u.data().saloId}”`, "erro"); }
+      if ((await getDoc(doc(db, T.col, id))).exists()) return volta(`Já existe ${T.um} ${T.nomeMin} com esse identificador`);
+      const u = await getDoc(doc(db, C.users, SUPER));
+      if (u.exists()) return volta(`Seu login já está ${T.no} ${T.nomeMin} “${u.data()[C.campo]}”`);
       const b = writeBatch(db);
-      b.set(doc(db, "saloes", id), { nome, donoEmail: SUPER, donoNome: "Administrador", status: "ativo", plano: "proprio", mensalidade: 0, vencimento: null, obs: "Salão de testes do administrador", criadoEm: serverTimestamp() });
-      b.set(doc(db, "usuariosSalao", SUPER), { saloId: id });
-      b.set(doc(db, `saloes/${id}/config`, "salao"), { nome });
+      b.set(doc(db, T.col, id), { nome, donoEmail: SUPER, donoNome: "Administrador", status: "ativo", plano: "proprio", mensalidade: 0, vencimento: null,
+        obs: `${T.nome} de testes do administrador`, criadoEm: serverTimestamp(), ...(T.extra || {}) });
+      b.set(doc(db, C.users, SUPER), mm ? { marmitaId: id, papel: "dono", nome: "Administrador" } : { saloId: id });
+      if (!mm) b.set(doc(db, `saloes/${id}/config`, "salao"), { nome });
       await b.commit();
-      md.fechar(); toast("Salão de teste criado!", "ok");
-      const L = linksSalao(id);
-      abrirModal(`<div class="mh"><h2>${esc(nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
-        <p class="small">Entre com o seu login de administrador. Na Agenda, toque em <b>Carregar exemplo</b> para já ter serviços, equipe e pacotes.</p>
-        <div class="small muted" style="margin-top:10px">Área do salão</div><div class="link">${esc(L.admin)}</div>
-        <div class="small muted">Link de agendamento (clientes)</div><div class="link">${esc(L.agenda)}</div>
-        <div class="row" style="margin-top:8px"><a class="btn grow" href="${esc(L.admin)}" target="_blank" style="text-decoration:none">Abrir área do salão</a><a class="btn ghost grow" href="${esc(L.agenda)}" target="_blank" style="text-decoration:none">Abrir link</a></div>`);
-    } catch (e) { console.error(e); bt.disabled = false; bt.textContent = "Criar salão de teste"; toast(erroMsg(e), "erro"); }
+      md.fechar(); toast(`${T.nome} de teste criad${T.o}!`, "ok");
+      if (mm) {
+        const L = linksMarmita(id);
+        abrirModal(`<div class="mh"><h2>${esc(nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+          <p class="small">Entre com o seu login de administrador. No painel, vá em <b>Cardápio → Produtos</b> e toque em <b>🧪 Carregar exemplo</b> para já ter pratos, cardápio do dia e estoque. Para testar o app do entregador, cadastre em <b>Ajustes → Equipe</b> um e-mail de teste como Entregador.</p>
+          <div class="small muted" style="margin-top:10px">Painel da marmitaria</div><div class="link">${esc(L.suporte)}</div>
+          <div class="small muted">Link de pedidos (clientes)</div><div class="link">${esc(L.pedir)}</div>
+          <div class="row" style="margin-top:8px"><a class="btn grow" href="${esc(L.suporte)}" target="_blank" style="text-decoration:none">Abrir painel</a><a class="btn ghost grow" href="${esc(L.pedir)}" target="_blank" style="text-decoration:none">Abrir link</a></div>`);
+      } else {
+        const L = linksSalao(id);
+        abrirModal(`<div class="mh"><h2>${esc(nome)}</h2><button class="icon-btn" data-fechar>✕</button></div>
+          <p class="small">Entre com o seu login de administrador. Na Agenda, toque em <b>Carregar exemplo</b> para já ter serviços, equipe e pacotes.</p>
+          <div class="small muted" style="margin-top:10px">Área do salão</div><div class="link">${esc(L.admin)}</div>
+          <div class="small muted">Link de agendamento (clientes)</div><div class="link">${esc(L.agenda)}</div>
+          <div class="row" style="margin-top:8px"><a class="btn grow" href="${esc(L.admin)}" target="_blank" style="text-decoration:none">Abrir área do salão</a><a class="btn ghost grow" href="${esc(L.agenda)}" target="_blank" style="text-decoration:none">Abrir link</a></div>`);
+      }
+    } catch (e) { console.error(e); volta(erroMsg(e)); }
   };
 };
 
